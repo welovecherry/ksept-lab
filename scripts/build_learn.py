@@ -13,12 +13,14 @@ build_learn.py — 원본 튜토리얼 + 내 학습 노트 = 학습본(docs/lear
 """
 
 import html as html_lib
+import json
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TUT_DIR = ROOT / "docs" / "tutorial"
 NOTES_DIR = ROOT / "notes"
+QUIZ_DIR = ROOT / "quizzes"
 OUT_DIR = ROOT / "docs" / "learn"
 
 # 학습 노트 영역 스타일 (각 학습본 <head>에 주입)
@@ -37,6 +39,114 @@ NOTE_CSS = """
   .readonly-banner b { color:#58a6ff; }
 </style>
 """
+
+
+# 인터랙티브 퀴즈 스타일 + 동작 (학습본에만 주입)
+QUIZ_CSS = """
+<style>
+  .quiz { background:#0f1620; border:1px solid #30363d; border-radius:10px; padding:1rem 1.2rem; margin:1rem 0 1.5rem; }
+  .quiz-review { background:#11271a; border-left:3px solid #3fb950; border-radius:6px; padding:.7rem .9rem; margin-bottom:1rem; line-height:1.6; color:#e6edf3; }
+  .quiz-q { margin:1.1rem 0; }
+  .quiz-question { margin:0 0 .6rem; }
+  .quiz-question .q-en { display:block; font-weight:700; color:#e6edf3; }
+  .quiz-question .q-ko { display:block; color:#8b949e; font-size:.92rem; margin-top:.15rem; }
+  .quiz-opts { display:flex; flex-direction:column; gap:.45rem; }
+  .quiz-opt { text-align:left; background:#161b22; color:#e6edf3; border:1px solid #30363d;
+    border-radius:8px; padding:.6rem .8rem; font:inherit; cursor:pointer; transition:background .12s,border-color .12s; }
+  .quiz-opt:hover { border-color:#58a6ff; }
+  .quiz-q.answered .quiz-opt { cursor:default; }
+  .quiz-opt.correct { background:#1f6f2e33; border-color:#3fb950; color:#d6ffe0; }
+  .quiz-opt.correct::after { content:"  \\2705"; }
+  .quiz-opt.wrong { background:#6f1f1f33; border-color:#f85149; color:#ffdcdc; }
+  .quiz-opt.wrong::after { content:"  \\274C"; }
+  .quiz-exp { margin-top:.7rem; padding:.7rem .9rem; background:#161b22; border:1px dashed #30363d;
+    border-radius:8px; color:#c9d1d9; line-height:1.6; }
+  .quiz-retry { margin-left:.6rem; background:none; border:1px solid #30363d; color:#58a6ff;
+    border-radius:6px; padding:.15rem .6rem; cursor:pointer; font:inherit; font-size:.85rem; }
+  .quiz-retry:hover { border-color:#58a6ff; }
+</style>
+"""
+
+QUIZ_JS = """
+<script>
+(function(){
+  document.addEventListener('click', function(e){
+    var opt = e.target.closest('.quiz-opt');
+    if (opt){
+      var q = opt.closest('.quiz-q');
+      if (q.classList.contains('answered')) return;
+      q.classList.add('answered');
+      var correct = opt.getAttribute('data-correct') === 'true';
+      opt.classList.add(correct ? 'correct' : 'wrong');
+      if (!correct){
+        var right = q.querySelector('.quiz-opt[data-correct="true"]');
+        if (right) right.classList.add('correct');
+      }
+      var exp = q.querySelector('.quiz-exp'); if (exp) exp.hidden = false;
+      return;
+    }
+    var retry = e.target.closest('.quiz-retry');
+    if (retry){
+      var q2 = retry.closest('.quiz-q');
+      q2.classList.remove('answered');
+      var opts = q2.querySelectorAll('.quiz-opt');
+      for (var i=0;i<opts.length;i++){ opts[i].classList.remove('correct','wrong'); }
+      var exp2 = q2.querySelector('.quiz-exp'); if (exp2) exp2.hidden = true;
+    }
+  });
+})();
+</script>
+"""
+
+_LETTERS = "ABCDEFGH"
+
+
+def render_quiz(quiz):
+    """퀴즈 데이터(dict) -> 인터랙티브 HTML 블록."""
+    parts = ['<div class="quiz">']
+    if quiz.get("review"):
+        parts.append('<div class="quiz-review">🧠 <b>잠깐 복습</b><br>%s</div>'
+                     % html_lib.escape(quiz["review"]))
+    for q in quiz["questions"]:
+        parts.append('<div class="quiz-q">')
+        parts.append('<p class="quiz-question"><span class="q-en">%s</span>'
+                     '<span class="q-ko">%s</span></p>'
+                     % (html_lib.escape(q["en"]), html_lib.escape(q["ko"])))
+        parts.append('<div class="quiz-opts">')
+        for idx, opt in enumerate(q["options"]):
+            parts.append('<button class="quiz-opt" data-correct="%s">%s. %s</button>'
+                         % ("true" if opt.get("correct") else "false",
+                            _LETTERS[idx], html_lib.escape(opt["t"])))
+        parts.append('</div>')
+        parts.append('<div class="quiz-exp" hidden>💡 %s '
+                     '<button class="quiz-retry">다시 풀기</button></div>'
+                     % html_lib.escape(q["explanation"]))
+        parts.append('</div>')
+    parts.append('</div>')
+    return "\n".join(parts)
+
+
+def inject_quizzes(html, module):
+    """quizzes/<module>.json이 있으면 해당 슬라이드 본문을 인터랙티브 퀴즈로 교체.
+    돌려주는 값: (바뀐 html, 퀴즈 1개라도 넣었는지 여부)."""
+    qpath = QUIZ_DIR / f"{module}.json"
+    if not qpath.exists():
+        return html, False
+    data = json.loads(qpath.read_text(encoding="utf-8"))
+    injected = False
+    for sid, quiz in data.items():
+        quiz_html = render_quiz(quiz)
+        # h2(슬라이드 제목)는 남기고, 그 슬라이드 본문(다음 h2/<hr> 전까지)을 교체
+        pat = re.compile(
+            r'(<h2 id="%s">.*?</h2>)(.*?)(?=<h2 id="slide-\d+">|<hr>)' % re.escape(sid),
+            re.S,
+        )
+        html, n = pat.subn(lambda m: m.group(1) + "\n" + quiz_html + "\n", html, count=1)
+        if n:
+            injected = True
+        else:
+            print(f"    ! quiz target {sid} not found in {module}")
+    return html, injected
 
 
 # ── 아주 작은 마크다운 → HTML 변환기 (노트 작성에 필요한 부분집합) ──────────────
@@ -122,6 +232,9 @@ def build_page(tut_path):
     module = tut_path.stem  # e.g. "setup"
     html = tut_path.read_text(encoding="utf-8")
 
+    # 원본의 퀴즈 슬라이드를 인터랙티브 퀴즈로 교체 (quizzes/<module>.json 있을 때)
+    html, has_quiz = inject_quizzes(html, module)
+
     # 노트 읽기 (없으면 빈 안내)
     note_path = NOTES_DIR / f"{module}.md"
     if note_path.exists() and note_path.read_text(encoding="utf-8").strip():
@@ -151,8 +264,11 @@ def build_page(tut_path):
     html = html.replace('src="assets/', 'src="../tutorial/assets/')
     html = html.replace('href="assets/', 'href="../tutorial/assets/')
 
-    # 노트 스타일 주입 (한 번)
-    html = html.replace("</head>", NOTE_CSS + "</head>", 1)
+    # 노트 스타일 주입 (한 번) + 퀴즈가 있으면 퀴즈 스타일/동작도 주입
+    head_inject = NOTE_CSS + (QUIZ_CSS if has_quiz else "")
+    html = html.replace("</head>", head_inject + "</head>", 1)
+    if has_quiz:
+        html = html.replace("</body>", QUIZ_JS + "</body>", 1)
 
     # 본문 맨 위에 '학습본(읽기 전용)' 배너
     banner = ('<div class="readonly-banner">📖 <b>학습본</b> — 원본 튜토리얼(읽기 전용). '

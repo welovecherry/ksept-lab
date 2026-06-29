@@ -1,0 +1,138 @@
+{
+  "slide-7": {
+    "review": "풀스택 앱은 보통 두 부분이에요 — 데이터를 주는 백엔드와 화면을 그리는 프론트엔드. 이 강의의 hello-world도 그 구조죠. 무엇이 어느 쪽을 맡는지 떠올려 보세요.",
+    "questions": [
+      {
+        "en": "What did Claude actually build?",
+        "ko": "Claude가 실제로 만든 것은 무엇인가요?",
+        "options": [
+          { "t": "정적 HTML 한 장짜리 사이트", "correct": false },
+          { "t": "Flask 백엔드(API) + React(Vite) 프론트엔드 — 풀스택 앱", "correct": true },
+          { "t": "React 프론트엔드만, 백엔드는 없음", "correct": false },
+          { "t": "파이썬 CLI 스크립트", "correct": false }
+        ],
+        "explanation": "Claude는 /api/* 를 제공하는 Flask 백엔드와 화면을 담당하는 React(Vite) 프론트를 함께 만들고, 둘을 프록시로 연결했어요. (slide 4 'What Claude built' 참고)"
+      }
+    ]
+  },
+  "slide-8": {
+    "review": "React 앱이 데이터를 가져오는 '생애주기'를 떠올려 보세요. 화면이 처음 뜰 때(mount) 한 번 요청하고, 응답을 기다리는 동안엔 임시 화면(로딩)을 보여주고, 실패하면 에러를 처리해야 해요. 이 모든 건 state로 제어되고, state가 바뀌면 React가 다시 그립니다.",
+    "questions": [
+      {
+        "en": "Where exactly does the network request happen — on mount, on every render, or on a button click?",
+        "ko": "네트워크 요청은 정확히 언제 일어나나요 — 마운트 시, 매 렌더마다, 아니면 버튼 클릭 시?",
+        "options": [
+          { "t": "매 렌더마다", "correct": false },
+          { "t": "컴포넌트가 처음 마운트될 때 1회 (useEffect의 빈 의존성 배열 [])", "correct": true },
+          { "t": "버튼을 클릭할 때만", "correct": false },
+          { "t": "요청은 일어나지 않는다", "correct": false }
+        ],
+        "explanation": "useEffect(() => { ... }, []) 처럼 의존성 배열이 비어 있으면, 그 효과는 컴포넌트가 처음 마운트될 때 딱 한 번 실행돼요."
+      },
+      {
+        "en": "What does the page display in the brief moment between the page loading and the fetch completing?",
+        "ko": "페이지 로딩과 fetch 완료 사이의 짧은 순간엔 화면에 무엇이 보이나요?",
+        "options": [
+          { "t": "아무것도 안 보인다 (영원히 빈 화면)", "correct": false },
+          { "t": "로딩 상태 표시(예: 'Loading…') — loading state로 제어", "correct": true },
+          { "t": "서버의 최종 응답", "correct": false },
+          { "t": "에러 메시지", "correct": false }
+        ],
+        "explanation": "보통 loading 상태 변수(useState)로 'Loading…' 같은 자리표시자를 보여주고, 응답이 도착하면 loading을 꺼서 실제 데이터를 그립니다."
+      },
+      {
+        "en": "If the Flask process is stopped (Ctrl+C) but Vite keeps running, what shows up when you reload?",
+        "ko": "Flask를 멈추고(Ctrl+C) Vite만 켜진 상태에서 새로고침하면 무엇이 보이나요?",
+        "options": [
+          { "t": "마지막으로 받은 데이터가 캐시되어 그대로 보인다", "correct": false },
+          { "t": "/api 요청이 실패하고, 에러를 처리했다면 에러 메시지가 보인다 (처리 안 했으면 로딩/빈 상태에 멈춤)", "correct": true },
+          { "t": "페이지가 자동으로 백엔드를 복구한다", "correct": false },
+          { "t": "아무 변화도 없다", "correct": false }
+        ],
+        "explanation": "백엔드가 죽으면 그 요청은 실패해요. HTTP는 stateless라 매 요청이 독립적이라서 '이전에 됐으니 이번에도'가 없어요. 그래서 .catch로 에러 상태를 처리해야 하고, 안 하면 화면이 로딩에 갇히죠. (이게 slide 19 '결함 찾기'에서 고칠 결함 중 하나)"
+      },
+      {
+        "en": "You want to add GET /api/time (returns server time) and show it next to the greeting. Which files change?",
+        "ko": "GET /api/time(서버 시간 반환)을 추가해 인사말 옆에 표시하려면 어떤 파일을 바꿔야 하나요?",
+        "options": [
+          { "t": "backend/app.py 에 새 라우트 추가 + frontend/src/App.jsx 에서 그 엔드포인트를 호출·표시", "correct": true },
+          { "t": "frontend/src/App.jsx 만 바꾸면 된다", "correct": false },
+          { "t": "vite.config.js 만 바꾸면 된다", "correct": false },
+          { "t": "아무 파일도 안 바꾸고 자동으로 된다", "correct": false }
+        ],
+        "explanation": "데이터(시간)는 백엔드 책임이라 app.py에 /api/time 라우트를 만들고, 화면 표시는 프론트 책임이라 App.jsx에서 그 값을 fetch해 렌더해요. 풀스택은 '데이터=백엔드 / 화면=프론트' 분담이 핵심."
+      },
+      {
+        "en": "fetch('/api/hello') has no visible top-level await. Which function is async, where is it awaited, and how does the UI know to re-render?",
+        "ko": "fetch('/api/hello')엔 최상위 await가 안 보여요. 어떤 함수가 async이고, 어디서 await되며, UI는 언제 다시 그릴지 어떻게 아나요?",
+        "options": [
+          { "t": "useEffect 안의 async 함수가 fetch를 await하고, 응답으로 setState 하면 그 state 변화가 React의 재렌더를 유발한다", "correct": true },
+          { "t": "fetch는 동기 함수라 await가 필요 없다", "correct": false },
+          { "t": "React가 1초마다 자동으로 다시 그린다", "correct": false },
+          { "t": "브라우저가 응답을 받으면 페이지를 통째로 새로고침한다", "correct": false }
+        ],
+        "explanation": "보통 useEffect 안에 async 함수를 만들어 await fetch(...) 로 응답을 기다리고, 받은 값을 setState 해요. state가 바뀌면 React가 그 컴포넌트를 다시 렌더링하면서 화면이 갱신됩니다."
+      }
+    ]
+  },
+  "slide-19": {
+    "review": "잘 도는 앱에도 실무에 필요한 게 빠져 있을 수 있어요. 대화 기억(memory), 로딩 표시, 백엔드 장애 처리, API 에러 처리, 스트리밍 — 각 결함이 어디(백엔드/프론트)서 다뤄져야 할지 생각해보세요.",
+    "questions": [
+      {
+        "en": "Send 'My name is Alex.' then 'What is my name?' — does the bot remember? Why or why not?",
+        "ko": "'My name is Alex.' 다음 'What is my name?'을 보내면 봇이 기억하나요? 왜 그런가요?",
+        "options": [
+          { "t": "기억한다 — Claude가 사용자별로 대화를 자동 저장하니까", "correct": false },
+          { "t": "기억 못 한다 — 매 요청에 이전 대화를 함께 보내지 않으면 모델엔 과거가 없다 (backend에서 대화 history를 함께 보내야 함)", "correct": true },
+          { "t": "기억한다 — 브라우저가 자동으로 보관하니까", "correct": false },
+          { "t": "기억 못 하고, 고칠 방법도 없다", "correct": false }
+        ],
+        "explanation": "LLM API는 stateless라 모델은 '이번에 보낸 메시지들'만 봐요. 기억하게 하려면 backend에서 이전 대화(messages 배열)를 매 요청에 함께 보내야 해요. (keyword: memory)"
+      },
+      {
+        "en": "During a slow answer, what does the UI do? Where is that controlled — or not?",
+        "ko": "답변이 느릴 때 UI는 무엇을 하나요? 그건 어디서 제어되나요 (혹은 안 되나요)?",
+        "options": [
+          { "t": "이미 로딩 표시를 보여준다", "correct": false },
+          { "t": "아무 피드백 없이 멈춘 듯 보인다 — 로딩 상태가 없어서. 프론트(App.jsx)에서 loading state로 제어해야 함", "correct": true },
+          { "t": "답을 미리 짐작해서 보여준다", "correct": false },
+          { "t": "자동으로 에러를 띄운다", "correct": false }
+        ],
+        "explanation": "로딩 인디케이터가 없으면 사용자는 멈춘 줄 알아요. 프론트엔드에서 요청 시작~응답 도착 사이에 loading state로 'Thinking…' 같은 표시를 해줘야 해요."
+      },
+      {
+        "en": "Stop the backend, then send a message in the UI. What happens? Where in App.jsx would you handle it?",
+        "ko": "백엔드를 멈춘 뒤 UI에서 메시지를 보내면? App.jsx의 어디서 처리하나요?",
+        "options": [
+          { "t": "메시지가 큐에 쌓였다가 나중에 전송된다", "correct": false },
+          { "t": "요청이 실패한다 — App.jsx의 fetch를 try/catch(.catch)로 감싸 에러 상태를 보여줘야 함", "correct": true },
+          { "t": "백엔드가 자동으로 재시작된다", "correct": false },
+          { "t": "아무 일도 일어나지 않는다", "correct": false }
+        ],
+        "explanation": "백엔드가 없으면 fetch가 실패해요. App.jsx에서 try/catch(또는 .catch)로 잡아 사용자에게 에러 메시지를 보여줘야 합니다."
+      },
+      {
+        "en": "In backend/app.py, what if Claude's API returns 5xx, you hit a rate limit, or the key is wrong?",
+        "ko": "backend/app.py에서 Claude API가 5xx를 주거나, 레이트리밋에 걸리거나, 키가 틀리면?",
+        "options": [
+          { "t": "자동으로 재시도되어 항상 성공한다", "correct": false },
+          { "t": "처리 안 했다면 예외가 터져 500이 나간다 — try/except로 잡아 적절한 에러를 반환해야 함", "correct": true },
+          { "t": "클라이언트가 알아서 고친다", "correct": false },
+          { "t": "아무 영향이 없다", "correct": false }
+        ],
+        "explanation": "외부 API 호출은 실패할 수 있어요(5xx·레이트리밋·잘못된 키). backend에서 try/except로 감싸 적절한 상태코드와 메시지를 돌려줘야 앱이 죽지 않아요."
+      },
+      {
+        "en": "Ask for a long answer — does it stream in or appear all at once? Where is that choice made?",
+        "ko": "긴 답을 요청하면 한 글자씩 흐르나요, 한꺼번에 뜨나요? 그 선택은 어디서 정해지나요?",
+        "options": [
+          { "t": "항상 스트리밍된다 — 그게 기본값이라", "correct": false },
+          { "t": "한꺼번에 뜬다 — 스트리밍을 구현 안 하면. backend(스트림 응답)와 frontend(스트림 읽기) 양쪽에서 정해짐", "correct": true },
+          { "t": "브라우저가 알아서 스트리밍한다", "correct": false },
+          { "t": "스트리밍은 원래 불가능하다", "correct": false }
+        ],
+        "explanation": "스트리밍은 공짜가 아니에요. backend가 토큰을 스트림으로 흘려보내고(SSE 등) frontend가 그 스트림을 읽어 점진적으로 그려야 해요. 안 하면 완성된 답이 한 번에 뜹니다. (slide 22~24 'Streaming' 참고)"
+      }
+    ]
+  }
+}
