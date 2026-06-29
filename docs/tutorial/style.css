@@ -1,0 +1,88 @@
+/* ksept-lab 튜토리얼 — 작업일지(index.html) 다크 테마와 통일된 스타일.
+   build_tutorial.py가 생성하는 모듈 페이지들이 공유한다. */
+:root {
+  --bg: #0d1117; --panel: #161b22; --border: #30363d;
+  --fg: #e6edf3; --muted: #8b949e; --accent: #58a6ff; --green: #3fb950;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 1rem; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: -apple-system, "Apple SD Gothic Neo", "Pretendard", system-ui, sans-serif;
+  line-height: 1.7;
+}
+
+.layout { display: flex; align-items: flex-start; }
+.sidebar {
+  position: sticky; top: 0; align-self: flex-start;
+  width: 240px; height: 100vh; overflow-y: auto; flex: 0 0 auto;
+  background: var(--panel); border-right: 1px solid var(--border);
+  padding: 1.5rem 1rem;
+}
+.side-title { font-weight: 700; margin-bottom: 1rem; font-size: 1.05rem; }
+.side-title a { color: var(--fg); text-decoration: none; }
+.side-group { color: var(--muted); font-size: .75rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .08em; margin: 1.2rem 0 .4rem; }
+.sidebar nav { display: flex; flex-direction: column; gap: .1rem; }
+.sidebar nav a { color: var(--fg); text-decoration: none; padding: .4rem .6rem;
+  border-radius: 6px; font-size: .92rem; }
+.sidebar nav a:hover { background: #1f2530; color: var(--accent); }
+.sidebar nav a.active { background: #1f6feb22; color: var(--accent); font-weight: 600; }
+.side-foot { color: var(--muted); font-size: .75rem; margin-top: 1.5rem; line-height: 1.5; }
+
+.wrap { max-width: 880px; margin: 0 auto; padding: 2.5rem 2rem 5rem; flex: 1 1 auto; min-width: 0; }
+h1 { font-size: 2rem; margin: 0 0 .25rem; }
+.sub { color: var(--muted); margin-top: 0; }
+.sub a { color: var(--accent); }
+
+/* 슬라이드 = 카드. 제목은 앵커 가능한 h2. */
+h2 { font-size: 1.3rem; margin: 2.5rem 0 0; scroll-margin-top: 1rem;
+  border-top: 1px solid var(--border); padding-top: 1.5rem; }
+h2 a.anchor { color: var(--muted); text-decoration: none; font-weight: 400; opacity: 0; margin-left: .4rem; }
+h2:hover a.anchor { opacity: 1; }
+h3 { font-size: 1.05rem; margin: 1.4rem 0 .4rem; color: var(--accent); }
+h4 { margin: 1rem 0 .3rem; }
+p, li { color: var(--fg); }
+a { color: var(--accent); }
+
+code { background: #1f2530; padding: .12rem .35rem; border-radius: 4px; font-size: .88em; }
+pre { background: #010409; border: 1px solid var(--border); border-radius: 8px;
+  padding: 1rem 1.1rem; overflow-x: auto; line-height: 1.5; }
+pre code { background: none; padding: 0; font-size: .85rem; color: #c9d1d9; }
+
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; display: block; overflow-x: auto; }
+th, td { border: 1px solid var(--border); padding: .5rem .75rem; text-align: left; vertical-align: top; }
+th { background: #1f2530; color: var(--accent); }
+
+blockquote { border-left: 3px solid var(--accent); margin: 1rem 0; padding: .2rem 1rem;
+  color: var(--muted); background: #161b2266; }
+img { max-width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--border);
+  background: #fff; margin: .75rem 0; }
+hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+/* 모듈 상단 슬라이드 목차 */
+details.toc { background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; padding: .5rem 1rem; margin: 1.5rem 0; }
+details.toc > summary { cursor: pointer; color: var(--accent); font-weight: 600; padding: .3rem 0; }
+details.toc ol { margin: .5rem 0; padding-left: 1.4rem; columns: 2; }
+details.toc li { margin: .15rem 0; }
+details.toc a { color: var(--fg); text-decoration: none; }
+details.toc a:hover { color: var(--accent); }
+
+/* 랜딩 페이지 모듈 카드 그리드 */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.cards a { display: block; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; padding: 1.1rem 1.25rem; text-decoration: none; color: var(--fg); }
+.cards a:hover { border-color: var(--accent); }
+.cards .m-num { color: var(--accent); font-size: .8rem; font-weight: 700; letter-spacing: .06em; }
+.cards .m-title { font-size: 1.1rem; font-weight: 700; margin: .25rem 0; }
+.cards .m-desc { color: var(--muted); font-size: .85rem; line-height: 1.5; }
+.cards .m-meta { color: var(--muted); font-size: .78rem; margin-top: .6rem; }
+
+@media (max-width: 760px) {
+  .layout { flex-direction: column; }
+  .sidebar { position: static; width: auto; height: auto;
+    border-right: none; border-bottom: 1px solid var(--border); }
+  .sidebar nav { flex-direction: row; flex-wrap: wrap; }
+  details.toc ol { columns: 1; }
+}

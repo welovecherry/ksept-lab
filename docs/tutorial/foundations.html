@@ -1,0 +1,1449 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Foundations · ksept-lab 튜토리얼</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="side-title"><a href="../index.html">📒 ksept-lab</a></div>
+    <div class="side-group">📚 튜토리얼</div>
+    <nav><a href="index.html">개요</a><a href="setup.html">Setup</a><a href="foundations.html" class="active">Foundations</a><a href="tools.html">Tools &amp; Structure</a><a href="context.html">Context Management</a><a href="agents.html">Architecture &amp; Agents</a><a href="production.html">Production</a><a href="workshop.html">Workshop</a></nav>
+    <div class="side-foot">출처: ksetp.netlify.app<br>로컬 생성 후 커밋</div>
+  </aside>
+  <div class="wrap">
+    <h1>Foundations</h1>
+    <p class="sub">Module 2/7 · 슬라이드 24개 · <a href="https://ksetp.netlify.app/foundations" target="_blank" rel="noopener">원본 슬라이드 ↗</a></p>
+    <p class="sub">API 기초, 시스템 프롬프트, 프롬프트/컨텍스트 엔지니어링, 스트리밍, 에러 처리</p>
+    <details class="toc"><summary>이 모듈의 슬라이드 24개</summary><ol><li><a href="#slide-1">1. Foundations</a></li><li><a href="#slide-2">2. The Product Orchestrator</a></li><li><a href="#slide-3">3. Paste this into Claude Code</a></li><li><a href="#slide-4">4. What Claude built</a></li><li><a href="#slide-5">5. Run it</a></li><li><a href="#slide-6">6. Deploy it</a></li><li><a href="#slide-7">7. Quiz</a></li><li><a href="#slide-8">8. Quiz</a></li><li><a href="#slide-9">9. Lecture</a></li><li><a href="#slide-10">10. What is an LLM?</a></li><li><a href="#slide-11">11. What does it do?</a></li><li><a href="#slide-12">12. Chat app vs. model</a></li><li><a href="#slide-13">13. A first API call</a></li><li><a href="#slide-14">14. First LLM app</a></li><li><a href="#slide-15">15. What we&#x27;re building</a></li><li><a href="#slide-16">16. Install and run</a></li><li><a href="#slide-17">17. backend/app.py</a></li><li><a href="#slide-18">18. frontend/src/App.jsx</a></li><li><a href="#slide-19">19. Find the deficiencies</a></li><li><a href="#slide-20">20. Project Assignment</a></li><li><a href="#slide-21">21. Fix three deficiencies</a></li><li><a href="#slide-22">22. Streaming</a></li><li><a href="#slide-23">23. Streaming end-to-end · Backend</a></li><li><a href="#slide-24">24. Streaming end-to-end · Frontend</a></li></ol></details>
+<h2 id="slide-1">1. Foundations <a class="anchor" href="#slide-1">#</a></h2>
+<div>
+
+<p>MODULE 2</p>
+</div>
+
+<div>
+
+</div>
+
+<div>
+
+<p>Foundations</p>
+</div>
+
+<div>
+
+<p>Full Stack Application Development with Coding Agents (Claude Code)</p>
+</div>
+
+<p><img src="assets/foundations-Dev-Experience-Timeline.png" alt="A four-panel timeline showing the evolution of the developer experience from 2024 to 2027" /></p>
+<h2 id="slide-2">2. The Product Orchestrator <a class="anchor" href="#slide-2">#</a></h2>
+<div>
+
+<div>
+
+<p>The shift</p>
+</div>
+
+<div>
+
+<p>The Rise of the "Product Orchestrator"</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p><img src="./assets/eng-team.png" alt="An old-school engineering team" /></p>
+<div>
+
+<div>
+
+<p>Then</p>
+</div>
+
+<div>
+
+<p>The engineering team</p>
+</div>
+
+<div>
+
+<p>A team of specialists turning specs into code, sprint after sprint.</p>
+</div>
+
+</div>
+
+</div>
+
+<div>
+
+<p><img src="./assets/product-manager.png" alt="An old-school product manager" /></p>
+<div>
+
+<div>
+
+<p>Then</p>
+</div>
+
+<div>
+
+<p>The product manager</p>
+</div>
+
+<div>
+
+<p>One person holding the why — writing specs, waiting on builds.</p>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+<div>
+
+<p><img src="data:image/svg+xml;base64,PHN2ZyB2aWV3Ym94PSIwIDAgMTUwIDQ2MCIgcHJlc2VydmVhc3BlY3RyYXRpbz0ibm9uZSI+CiAgICAgICAgICA8cGF0aCBkPSJNMiAxMjAgQyA3MCAxMjAsIDcwIDIzMCwgMTQyIDIzMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMGU3NDkwIiBzdHJva2Utd2lkdGg9IjMiIC8+CiAgICAgICAgICA8cGF0aCBkPSJNMiAzNDAgQyA3MCAzNDAsIDcwIDIzMCwgMTQyIDIzMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMGU3NDkwIiBzdHJva2Utd2lkdGg9IjMiIC8+CiAgICAgICAgICA8cGF0aCBkPSJNMTMyIDIyMiBMIDE0OCAyMzAgTCAxMzIgMjM4IFoiIGZpbGw9IiMwZTc0OTAiIC8+CiAgICAgICAgPC9zdmc+" /></p>
+</div>
+
+<div>
+
+<p><img src="./assets/orchestrator.png" alt="The AI-enabled Product Orchestrator" /></p>
+<div>
+
+<div>
+
+<p>Now</p>
+</div>
+
+<div>
+
+<p>The Product Orchestrator</p>
+</div>
+
+<div>
+
+<p>One person who holds the why and directs coding agents to build it — embodies software architecture and product/market expertise</p>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+<h2 id="slide-3">3. Paste this into Claude Code <a class="anchor" href="#slide-3">#</a></h2>
+<div>
+
+<div>
+
+<p>Scaffold</p>
+</div>
+
+<div>
+
+<p>Paste this into Claude Code</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<p><strong>1 · Open the project in VSCode:</strong> <code>code ~/ksept-lab</code> (the folder from Setup)</p>
+</div>
+
+<div>
+
+<p><strong>2 · Open the integrated terminal:</strong> Terminal → New Terminal</p>
+</div>
+
+<div>
+
+<p><strong>3 · Start Claude in auto-accept mode:</strong> <code>claude --permission-mode acceptEdits</code></p>
+</div>
+
+<div>
+
+<p><strong>4 · Paste the prompt below</strong> and submit it</p>
+</div>
+
+</div>
+
+<pre><code>Create a hello-world full-stack app in the current directory.
+Do NOT install dependencies — just write the files and give me a
+summary of what you created. I&#39;ll run the installs after I review.
+
+backend/
+  - Single-file Flask app (app.py)
+  - One endpoint: GET /api/hello returning {&quot;message&quot;: &quot;Hello from Flask&quot;}
+  - Enable CORS so the frontend can call it
+  - requirements.txt listing flask and flask-cors
+  - README.md: how to install (pip install -r requirements.txt, with
+    the .venv at the project root active) and how to run
+    (python app.py on port 5000)
+
+frontend/
+  - React app scaffolded with Vite, plain JavaScript (not TypeScript)
+  - A single page App.jsx that fetches /api/hello on mount and
+    displays the message returned
+  - vite.config.js proxies /api/* to http://localhost:5000
+  - README.md: how to install (npm install) and how to run
+    (npm run dev on port 5173)
+
+Top-level README.md explaining how to start both servers in two terminals.</code></pre>
+<p>Auto-accept lets Claude write files without asking each time (not <code>--dangerously-skip-permissions</code>, which skips <em>all</em> checks). "Don't install dependencies yet" is deliberate — you want to read what Claude proposes before it modifies the project.</p>
+<h2 id="slide-4">4. What Claude built <a class="anchor" href="#slide-4">#</a></h2>
+<div>
+
+<div>
+
+<p>Walkthrough</p>
+</div>
+
+<div>
+
+<p>What Claude built</p>
+</div>
+
+</div>
+
+<p>Claude probably built something close to this — yours may differ a little (file names, comments, exact layout), but the shape will be the same.</p>
+<pre><code>ksept-lab/
+├── .venv/                    Python virtual env (created earlier)
+├── README.md                 how to start both servers
+├── backend/
+│   ├── app.py                Flask app — one endpoint, CORS enabled
+│   ├── requirements.txt      flask, flask-cors
+│   └── README.md
+└── frontend/
+    ├── index.html            Vite host page
+    ├── package.json          JS deps (react, react-dom, vite)
+    ├── vite.config.js        dev server config + /api/* proxy → :5000
+    ├── public/
+    └── src/
+        ├── main.jsx          React entry — mounts &lt;App/&gt;
+        ├── App.jsx           fetches /api/hello, renders the message
+        └── index.css</code></pre>
+<p>Two halves talking to each other: Flask serves <code>/api/hello</code> on :5000; Vite serves the React app on :5173 and proxies <code>/api/*</code> calls back to Flask. The proxy is why the frontend can call the API without worrying about CORS or full URLs in dev.</p>
+<h2 id="slide-5">5. Run it <a class="anchor" href="#slide-5">#</a></h2>
+<div>
+
+<div>
+
+<p>Walkthrough</p>
+</div>
+
+<div>
+
+<p>Run it as a developer</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Terminal 1 — backend</p>
+</div>
+
+<div>
+
+<p>macOS</p>
+<p>Windows</p>
+</div>
+
+<pre><code>cd ~/ksept-lab
+source .venv/bin/activate
+cd backend
+pip install -r requirements.txt
+python app.py
+# → Running on http://127.0.0.1:5000
+
+cd ~/ksept-lab
+.venv\Scripts\Activate.ps1
+cd backend
+pip install -r requirements.txt
+python app.py
+# → Running on http://127.0.0.1:5000</code></pre>
+</div>
+
+<div>
+
+<div>
+
+<p>Terminal 2 — frontend</p>
+</div>
+
+<pre><code>cd ~/ksept-lab/frontend
+npm install
+npm run dev
+# → Local: http://localhost:5173</code></pre>
+</div>
+
+</div>
+
+<p>Open <a href="http://localhost:5173" target="_blank" rel="noreferrer">http://localhost:5173</a> — you should see <strong>"Hello from Flask"</strong> rendered by React. The React app fetched it through the Vite proxy from the Flask backend.</p>
+<div>
+
+<div>
+
+<div>
+
+<p>Frontend server</p>
+</div>
+
+<div>
+
+<p>Vite + React</p>
+</div>
+
+<div>
+
+<p>:5173</p>
+</div>
+
+<div>
+
+<p>Serves the React app &amp; proxies <code>/api/*</code></p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>GET /api/hello</p>
+</div>
+
+<div>
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+<div>
+
+<p>"Hello from Flask"</p>
+</div>
+
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<p>Backend server</p>
+</div>
+
+<div>
+
+<p>Flask</p>
+</div>
+
+<div>
+
+<p>:5000</p>
+</div>
+
+<div>
+
+<p>Exposes <code>/api/hello</code> → returns JSON</p>
+</div>
+
+</div>
+
+</div>
+
+<h2 id="slide-6">6. Deploy it <a class="anchor" href="#slide-6">#</a></h2>
+<div>
+
+<div>
+
+<p>Walkthrough</p>
+</div>
+
+<div>
+
+<p>Ship it to production</p>
+</div>
+
+</div>
+
+<p>No Vite dev server in production. You <strong>build</strong> React to static files, then one origin serves everything: <strong>Nginx</strong> hands back the static app and reverse-proxies <code>/api/*</code> to <strong>Gunicorn</strong>, which runs your <strong>Flask</strong> code — all baked into one container image.</p>
+<div>
+
+<div>
+
+<div>
+
+<p>Client</p>
+</div>
+
+<div>
+
+<p>Browser</p>
+</div>
+
+<div>
+
+<p>One origin, one port</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<p>HTTPS :443</p>
+</div>
+
+<div>
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<p>Docker container</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Web server</p>
+</div>
+
+<div>
+
+<p>Nginx</p>
+</div>
+
+<div>
+
+<p>TLS · gzip · serves <code>dist/</code> (React build)</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<p>/api/* →</p>
+</div>
+
+<div>
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<p>WSGI server</p>
+</div>
+
+<div>
+
+<p>Gunicorn · 4 workers</p>
+</div>
+
+<div>
+
+<p>runs <code>app:app</code> — your Flask code</p>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+<div>
+
+<pre><code># stage 1 — build React to static files
+FROM node:20-slim AS web
+WORKDIR /web
+COPY frontend/ .
+RUN npm ci &amp;&amp; npm run build
+
+# stage 2 — Flask + nginx in one image
+FROM python:3.12-slim
+RUN apt-get update &amp;&amp; apt-get install -y nginx
+WORKDIR /app
+COPY backend/requirements.txt .
+RUN pip install -r requirements.txt
+COPY backend/ .
+COPY --from=web /web/dist /usr/share/nginx/html
+COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+# gunicorn runs Flask; nginx fronts it
+CMD gunicorn -w 4 -b 127.0.0.1:8000 app:app &amp; \
+    nginx -g &#39;daemon off;&#39;</code></pre>
+<div>
+
+<div>
+
+<div>
+
+<p>Nginx — the front door</p>
+</div>
+
+<div>
+
+<p>A fast web server that terminates TLS, serves the static React <code>dist/</code> files directly, and forwards only <code>/api/*</code> requests back to Gunicorn.</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<p>Gunicorn — the engine</p>
+</div>
+
+<div>
+
+<p>A production WSGI server that runs your Flask code across several worker processes, so the app serves many requests at once — unlike Flask's single-threaded dev server.</p>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+<h2 id="slide-7">7. Quiz <a class="anchor" href="#slide-7">#</a></h2>
+<div>
+
+<p>Foundations</p>
+</div>
+
+<div>
+
+</div>
+
+<div>
+
+<p>Quiz</p>
+</div>
+
+<div>
+
+<p>What did Claude actually build?</p>
+</div>
+
+<h2 id="slide-8">8. Quiz <a class="anchor" href="#slide-8">#</a></h2>
+<div>
+
+<div>
+
+<p>Quiz</p>
+</div>
+
+<div>
+
+<p>What the React app actually does</p>
+</div>
+
+</div>
+
+<div>
+
+<div data-quiz-lock="" data-hash="0a8521af">
+
+<div>
+
+<p><span data-quiz-state="">Answers locked</span></p>
+</div>
+
+<div data-quiz-keyword="">
+
+<p>keyword: stateless</p>
+</div>
+
+</div>
+
+<ol type="1">
+<li><p>Open <code>frontend/src/App.jsx</code>. Where exactly does the network request happen — on mount, on every render, or on a button click? Which line tells you that? Answer</p>
+<div data-ans-box="1">
+
+<p>🔒 Enter the passcode to reveal this answer.</p>
+</div>
+</li>
+<li><p>What does the page display in the brief moment between the page loading and the fetch completing? Where in the code is that controlled? Answer</p>
+<div data-ans-box="1">
+
+<p>🔒 Enter the passcode to reveal this answer.</p>
+</div>
+</li>
+<li><p>If the Flask process is stopped (<span class="kbd">Ctrl+C</span> in terminal 1) but Vite keeps running, what shows up on the page when you reload? Where in <code>App.jsx</code> is that case handled — or isn't it? Answer</p>
+<div data-ans-box="1">
+
+<p>🔒 Enter the passcode to reveal this answer.</p>
+</div>
+</li>
+<li><p>You want to add a second endpoint <code>GET /api/time</code> that returns the server's current time, and display it next to the greeting. Which files do you need to change, and what is the change in each? Answer</p>
+<div data-ans-box="1">
+
+<p>🔒 Enter the passcode to reveal this answer.</p>
+</div>
+</li>
+<li><p>The fetch call uses <code>fetch('/api/hello')</code> — no <code>await</code> chain visible at the top level. Trace the actual async flow: which function is async, where is the promise awaited, and how does the UI know when to re-render? Answer</p>
+<div data-ans-box="1">
+
+<p>🔒 Enter the passcode to reveal this answer.</p>
+</div>
+</li>
+</ol>
+</div>
+
+<h2 id="slide-9">9. Lecture <a class="anchor" href="#slide-9">#</a></h2>
+<div>
+
+<p>Foundations</p>
+</div>
+
+<div>
+
+</div>
+
+<div>
+
+<p>Introducing LLMs</p>
+</div>
+
+<div>
+
+<p>Raw AI models used by developers, not chatbots</p>
+</div>
+
+<h2 id="slide-10">10. What is an LLM? <a class="anchor" href="#slide-10">#</a></h2>
+<div>
+
+<div>
+
+<p>Lecture</p>
+</div>
+
+<div>
+
+<p>What is an LLM?</p>
+</div>
+
+</div>
+
+<p><strong>Large Language Model.</strong> A neural network trained to generate a "tokens" — a word or partial word — given a sequence of preceding tokens.</p>
+<ul>
+<li>Trained on <strong>trillions of tokens</strong>: books, websites, code, conversations, scientific papers</li>
+<li><strong>Hundreds of billions of parameters</strong> (numerical weights) tuned during training</li>
+<li>Output is generated one token at a time, each one conditioned on everything that came before — the prompt, the system instructions, and previous output tokens</li>
+</ul>
+<div>
+
+<div>
+
+<p>Context shapes the prediction</p>
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Prompt: Mary had a little ________</p>
+</div>
+
+<div>
+
+<p>Response: <strong>lamb</strong> — the overwhelmingly most likely next token</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<p>Prompt: Finish this in a surprising/funny way: Mary had a little ________</p>
+</div>
+
+<div>
+
+<p>Response: <strong>llama — and the farm's Wi-Fi password is its name</strong></p>
+</div>
+
+</div>
+
+</div>
+
+<p>Same blank, different context → different result. Given the right context, LLMs are extremely powerful.</p>
+</div>
+
+<h2 id="slide-11">11. What does it do? <a class="anchor" href="#slide-11">#</a></h2>
+<div>
+
+<div>
+
+<p>Lecture</p>
+</div>
+
+<div>
+
+<p>What does it do?</p>
+</div>
+
+<p>Out of the box, a base LLM is good at a certain tings — and bad at others. </p>
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Good at</p>
+</div>
+
+<ul>
+<li>Generating coherent text — prose, code, summaries</li>
+<li>Answering questions from its training data <span title="Main source of hallucination — see below">⚠️</span></li>
+<li>Translating — between human languages, or to and from code</li>
+<li>Extracting structured info from messy text</li>
+<li>Reading images — OCR, identifying objects, describing and interpreting scenes, charts, and diagrams</li>
+<li>Reasoning step-by-step through bounded problems</li>
+</ul>
+</div>
+
+<div>
+
+<div>
+
+<p>Not without help</p>
+</div>
+
+<ul>
+<li>Remembering prior conversations</li>
+<li>Looking up current information</li>
+<li>Taking real-world actions (sending email, updating a database)</li>
+<li>Running code or using tools</li>
+<li>Verifying its own answers</li>
+</ul>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<p>⚠️ Answering from training data is where hallucination comes from</p>
+</div>
+
+<p>The more consensus there is in the training data the better these answers, but LLMs will generate the plausible-sounding answer from patterns in its training, fluently and confidently, whether or not it's true. This is the main source of hallucination.  But LLMs are very good and synthesizing high quality output from validated trusted inputs (context that you provide). </p>
+</div>
+
+<p>LLM: A very powerful engine.  AI Applications: Using LLMs as part of high quality, reliable solution</p>
+<h2 id="slide-12">12. Chat app vs. model <a class="anchor" href="#slide-12">#</a></h2>
+<div>
+
+<div>
+
+<p>Foundations</p>
+</div>
+
+<div>
+
+<p>Example: AI chat app vs. the underlying model</p>
+</div>
+
+<p>Two very different things share the same underlying model. Knowing which one you're using — and what each gives you for free — is the first mental shift. (We'll use Claude; the distinction is identical for ChatGPT/OpenAI, Gemini/Google, etc.)</p>
+</div>
+
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>AI chat application<br />
+<span>claude.ai · ChatGPT · Gemini · Copilot Chat</span></th>
+<th>AI model / LLM API<br />
+<span>Anthropic · OpenAI · Google · Mistral</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A finished application, built by the vendor</td>
+<td>Raw model access — <strong>you</strong> build the application</td>
+</tr>
+<tr>
+<td>Conversation memory is automatic</td>
+<td>You send the full history on every request</td>
+</tr>
+<tr>
+<td>File uploads, code execution, web search are pre-wired</td>
+<td>You bring or build every tool yourself</td>
+</tr>
+<tr>
+<td>Streaming, formatting, UI — handled</td>
+<td>You choose what to handle and when</td>
+</tr>
+<tr>
+<td>Billing and subscriptions</td>
+<td>Pay per token used</td>
+</tr>
+<tr>
+<td>Audience: end users</td>
+<td>Audience: developers shipping products</td>
+</tr>
+</tbody>
+</table>
+
+<p>The chat app is itself an application built on the model API. When you switch to the API, you become the developer of that application — everything the chat product handles for you becomes your code to write.</p>
+<h2 id="slide-13">13. A first API call <a class="anchor" href="#slide-13">#</a></h2>
+<div>
+
+<div>
+
+<p>Lecture</p>
+</div>
+
+<div>
+
+<p>A first API call</p>
+</div>
+
+</div>
+
+<pre><code>from anthropic import Anthropic
+client = Anthropic()    # reads ANTHROPIC_API_KEY from env
+
+resp = client.messages.create(
+    model=&quot;claude-sonnet-4-6&quot;,
+    max_tokens=256,
+    system=&quot;You are a tax advisor, only answer questions about taxes otherwise politely decline to answer.&quot;,
+    messages=[
+        {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;What if I don&#39;t pay my estimated taxes on time?&quot;},
+    ],
+)
+
+print(resp.content[0].text)</code></pre>
+<p>The param max_tokens is required; the response is an array of content blocks, not a single string. For simple API calls, the response is the first content block. Major LLM APIs are very similar but with minor variations. We are using Anthropic Claude's API.</p>
+<h2 id="slide-14">14. First LLM app <a class="anchor" href="#slide-14">#</a></h2>
+<div>
+
+<p>Foundations</p>
+</div>
+
+<div>
+
+</div>
+
+<div>
+
+<p>First LLM app</p>
+</div>
+
+<div>
+
+<p>A bare-bones chat — small enough to read every line</p>
+</div>
+
+<h2 id="slide-15">15. What we're building <a class="anchor" href="#slide-15">#</a></h2>
+<div>
+
+<div>
+
+<p>First LLM app</p>
+</div>
+
+<div>
+
+<p>What we're building</p>
+</div>
+
+</div>
+
+<p>Same frontend/backend split as the hello-world. The backend now forwards messages to Claude.</p>
+<div>
+
+<div>
+
+<div>
+
+<p>Front End</p>
+</div>
+
+<div>
+
+<p>React + Vite<br />
+:5173</p>
+</div>
+
+</div>
+
+<div>
+
+<p>→</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Back End</p>
+</div>
+
+<div>
+
+<p>Python Flask<br />
+/api/chat:5000</p>
+</div>
+
+</div>
+
+<div>
+
+<p>→</p>
+</div>
+
+<div>
+
+<div>
+
+<p>LLM (Claude) API</p>
+</div>
+
+<div>
+
+<p>claude-sonnet-4-6</p>
+</div>
+
+</div>
+
+</div>
+
+<p>These are the two key files</p>
+<ul>
+<li><code>backend/app.py</code> — one endpoint, calls Claude (~15 lines)</li>
+<li><code>frontend/src/App.jsx</code> — Simplue UI: send field + message list (~30 lines)</li>
+</ul>
+<h2 id="slide-16">16. Install and run <a class="anchor" href="#slide-16">#</a></h2>
+<div>
+
+<div>
+
+<p>First LLM app</p>
+</div>
+
+<div>
+
+<p>Install and run</p>
+</div>
+
+</div>
+
+<div>
+
+<p><a href="https://ksetp.netlify.app/assets/foundations/chat-app.zip" download=""><span>↓</span> Download the project <span>chat-app.zip</span></a></p>
+<p>Unzip into your <code>~/ksept-lab</code> folder — you'll get a <code>chat-app/</code> directory next to your hello-world project.</p>
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Terminal 1 — backend</p>
+</div>
+
+<pre><code>cd ~/ksept-lab/chat-app
+python3.11 -m venv .venv
+source .venv/bin/activate
+
+cd backend
+pip install -r requirements.txt
+python app.py
+# reads ANTHROPIC_API_KEY from ~/ksept-lab/.env</code></pre>
+</div>
+
+<div>
+
+<div>
+
+<p>Terminal 2 — frontend</p>
+</div>
+
+<pre><code>cd ~/ksept-lab/chat-app/frontend
+npm install
+npm run dev</code></pre>
+<p>Open <a href="http://localhost:5173" target="_blank" rel="noreferrer">http://localhost:5173</a>, type a message, watch Claude reply.</p>
+</div>
+
+</div>
+
+<h2 id="slide-17">17. backend/app.py <a class="anchor" href="#slide-17">#</a></h2>
+<div>
+
+<div>
+
+<p>First LLM app · Backend</p>
+</div>
+
+<div>
+
+<p>backend/app.py</p>
+</div>
+
+</div>
+
+<pre><code>from flask import Flask, request, jsonify
+from flask_cors import CORS
+from anthropic import Anthropic
+from dotenv import load_dotenv, find_dotenv
+
+# Walks up from cwd until it finds a .env — picks up the shared
+# ~/ksept-lab/.env that every example app in this course reads from.
+load_dotenv(find_dotenv(usecwd=True))
+
+app = Flask(__name__)
+CORS(app)
+client = Anthropic()
+
+@app.route(&quot;/api/chat&quot;, methods=[&quot;POST&quot;])
+def chat():
+    user_message = request.json[&quot;message&quot;]
+
+    resp = client.messages.create(
+        model=&quot;claude-sonnet-4-6&quot;,
+        max_tokens=512,
+        system=&quot;You are a helpful assistant. Keep replies brief.&quot;,
+        messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: user_message}],
+    )
+
+    return jsonify({&quot;reply&quot;: resp.content[0].text})
+
+if __name__ == &quot;__main__&quot;:
+    app.run(port=5000, debug=True)</code></pre>
+<p>Read every line. There are no other lines. That's the whole backend.</p>
+<h2 id="slide-18">18. frontend/src/App.jsx <a class="anchor" href="#slide-18">#</a></h2>
+<div>
+
+<div>
+
+<p>First LLM app · Frontend</p>
+</div>
+
+<div>
+
+<p>frontend/src/App.jsx</p>
+</div>
+
+</div>
+
+<div>
+
+<pre><code>import { useState } from &#39;react&#39;
+
+export default function App() {
+  const [messages, setMessages] = useState([])
+  const [input, setInput] = useState(&#39;&#39;)
+
+  async function send(e) {
+    e.preventDefault()
+    if (!input.trim()) return
+
+    const userMsg = { role: &#39;user&#39;, text: input }
+    setMessages((m) =&gt; [...m, userMsg])
+    setInput(&#39;&#39;)
+
+    const res = await fetch(&#39;/api/chat&#39;, {
+      method: &#39;POST&#39;,
+      headers: { &#39;Content-Type&#39;: &#39;application/json&#39; },
+      body: JSON.stringify({ message: input }),
+    })
+    const data = await res.json()
+
+    setMessages((m) =&gt; [...m, { role: &#39;assistant&#39;, text: data.reply }])
+  }
+
+  return (
+    &lt;div className=&quot;app&quot;&gt;
+      &lt;h1&gt;Chat&lt;/h1&gt;
+      &lt;div className=&quot;messages&quot;&gt;
+        {messages.map((m, i) =&gt; (
+          &lt;div key={i} className={`msg msg-${m.role}`}&gt;
+            &lt;b&gt;{m.role}:&lt;/b&gt; {m.text}
+          &lt;/div&gt;
+        ))}
+      &lt;/div&gt;
+      &lt;form onSubmit={send}&gt;
+        &lt;input
+          value={input}
+          onChange={(e) =&gt; setInput(e.target.value)}
+        /&gt;
+        &lt;button type=&quot;submit&quot;&gt;Send&lt;/button&gt;
+      &lt;/form&gt;
+    &lt;/div&gt;
+  )
+}</code></pre>
+</div>
+
+<h2 id="slide-19">19. Find the deficiencies <a class="anchor" href="#slide-19">#</a></h2>
+<div>
+
+<div>
+
+<p>First LLM app · Critique</p>
+</div>
+
+<div>
+
+<p>Find the deficiencies</p>
+</div>
+
+<p>It works. It also has at least five things missing that any real chat app would need. Run the app, try the prompts below, and find them.</p>
+</div>
+
+<div>
+
+<div data-quiz-lock="" data-hash="84e9f1ae">
+
+<div>
+
+<p><span data-quiz-state="">Answers locked</span></p>
+</div>
+
+<div data-quiz-keyword="">
+
+<p>keyword: memory</p>
+</div>
+
+</div>
+
+<ol type="1">
+<li><p>Send <em>"My name is Alex."</em> Then send <em>"What is my name?"</em> Does the bot remember? Why or why not? Which file would you change to fix it, and roughly how? Answer</p>
+<div data-ans-box="1">
+
+<p>🔒 Enter the passcode to reveal this answer.</p>
+</div>
+</li>
+<li><p>Send a long question that takes Claude several seconds to answer. What does the UI do during those seconds? Where in the code is that controlled — or not controlled? Answer</p>
+<div data-ans-box="1">
+
+<p>🔒 Enter the passcode to reveal this answer.</p>
+</div>
+</li>
+<li><p>Stop the backend (Ctrl+C in terminal 1), then send a message in the UI. What happens? Where in <code>App.jsx</code> would you handle this? Answer</p>
+<div data-ans-box="1">
+
+<p>🔒 Enter the passcode to reveal this answer.</p>
+</div>
+</li>
+<li><p>Look at <code>backend/app.py</code>. What happens if Claude's API returns a 5xx, or you hit a rate limit, or your API key is wrong? Answer</p>
+<div data-ans-box="1">
+
+<p>🔒 Enter the passcode to reveal this answer.</p>
+</div>
+</li>
+<li><p>Ask Claude to write a long answer ("explain the history of the printing press in detail"). Does the response stream in, or appear all at once? Where in the code does that choice get made? Answer</p>
+<div data-ans-box="1">
+
+<p>🔒 Enter the passcode to reveal this answer.</p>
+</div>
+</li>
+</ol>
+</div>
+
+<h2 id="slide-20">20. Project Assignment <a class="anchor" href="#slide-20">#</a></h2>
+<div>
+
+<p>Foundations</p>
+</div>
+
+<div>
+
+</div>
+
+<div>
+
+<p>Project Assignment</p>
+</div>
+
+<h2 id="slide-21">21. Fix three deficiencies <a class="anchor" href="#slide-21">#</a></h2>
+<div>
+
+<div>
+
+<p>Project</p>
+</div>
+
+<div>
+
+<p>Fix three deficiencies with Claude Code</p>
+</div>
+
+<p>Pick three (or more) of the deficiencies, use Claude Code to fix them in your <code>chat-app/</code> codebase, then present each fix to the class.</p>
+</div>
+
+<div>
+
+<p><strong>Before you start</strong> — make every fix its own commit:</p>
+<pre><code>cd ~/ksept-lab/chat-app  &amp;&amp;  git init &amp;&amp; git add . &amp;&amp; git commit -m &quot;starter&quot;</code></pre>
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Some deficiencies (you can choose others!)</p>
+</div>
+
+<ol type="1">
+<li>No conversation memory</li>
+<li>No loading state in the UI</li>
+<li>No frontend error handling</li>
+<li>No backend error handling</li>
+<li>No streaming</li>
+<li>+ anything else you found</li>
+</ol>
+</div>
+
+<div>
+
+<div>
+
+<p>For each fix</p>
+</div>
+
+<ol type="1">
+<li><strong>Prompt</strong> Claude Code — describe the <em>behavior</em> you want, not the implementation.</li>
+<li><strong>Read the diff</strong> Claude proposes <em>before</em> accepting it.</li>
+<li><strong>Verify</strong> by reproducing the original failure scenario.</li>
+<li><strong>Commit</strong>: <code>git commit -am "fix: &lt;deficiency&gt;"</code></li>
+</ol>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<p>💡 Working with Claude Code</p>
+</div>
+
+<ul>
+<li><strong>Ask for a plan first.</strong> "How would you fix this? Outline the steps — don't write code yet." Read the plan, push back, then tell it to go.</li>
+<li><strong>Ask for options and a recommendation.</strong> "What are a couple of ways to implement this, with trade-offs? Which do you recommend, and why?" You make the architecture call — Claude argues the cases.</li>
+</ul>
+</div>
+
+<p>To walk the diff in class: use VSCode's Source Control panel (branch icon in the left rail) for visual side-by-side diffs, or git log --oneline + git show &lt;hash&gt; to step through one fix at a time. Use Claude Code as a teacher, but make sure you understand the solution.</p>
+<h2 id="slide-22">22. Streaming <a class="anchor" href="#slide-22">#</a></h2>
+<div>
+
+<div>
+
+<p>Lecture</p>
+</div>
+
+<div>
+
+<p>Streaming</p>
+</div>
+
+</div>
+
+<pre><code>with client.messages.stream(
+    model=&quot;claude-sonnet-4-6&quot;,
+    max_tokens=512,
+    system=&quot;You are a tax advisor, only answer questions about taxes otherwise politely decline to answer.&quot;,
+    messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;What happens if I don&#39;t pay my estimated taxes on time?&quot;}],
+) as stream:
+    for text in stream.text_stream:
+        print(text, end=&quot;&quot;, flush=True)</code></pre>
+<p>Streaming is not always applicable!</p>
+<h2 id="slide-23">23. Streaming end-to-end · Backend <a class="anchor" href="#slide-23">#</a></h2>
+<div>
+
+<div>
+
+<p>STREAMING END-TO-END 1 OF 2</p>
+</div>
+
+<div>
+
+<p>Streaming from Backend to Frontend</p>
+</div>
+
+<p>The terminal example is half the story. In a real app the stream has to cross the wire: Flask <code>yield</code>s tokens as Server-Sent Events.</p>
+</div>
+
+<div>
+
+<p>backend/app.py</p>
+</div>
+
+<pre><code>from flask import Flask, request, Response
+
+@app.route(&quot;/api/chat/stream&quot;, methods=[&quot;POST&quot;])
+def chat_stream():
+    user_message = request.json[&quot;message&quot;]
+
+    def event_stream():
+        with client.messages.stream(
+            model=&quot;claude-sonnet-4-6&quot;,
+            max_tokens=512,
+            messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: user_message}],
+        ) as stream:
+            for text in stream.text_stream:
+                # SSE wire format: &quot;data: &lt;chunk&gt;\n\n&quot;
+                yield f&quot;data: {text}\n\n&quot;
+        yield &quot;event: done\ndata: \n\n&quot;
+
+    return Response(event_stream(), mimetype=&quot;text/event-stream&quot;)</code></pre>
+<h2 id="slide-24">24. Streaming end-to-end · Frontend <a class="anchor" href="#slide-24">#</a></h2>
+<div>
+
+<div>
+
+<p>STREAMING END-TO-END 3 OF 3</p>
+</div>
+
+<div>
+
+<p>Frontend — the browser reads the stream</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>frontend/src/App.jsx — 1 · open the stream</p>
+</div>
+
+<pre><code>async function send(message, onChunk) {
+  const res = await fetch(&#39;/api/chat/stream&#39;, {
+    method: &#39;POST&#39;,
+    headers: { &#39;Content-Type&#39;: &#39;application/json&#39; },
+    body: JSON.stringify({ message }),
+  })
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = &#39;&#39;
+
+  // …read loop, right column →</code></pre>
+</div>
+
+<div>
+
+<div>
+
+<p>2 · read bytes, parse SSE events</p>
+</div>
+
+<pre><code>  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+
+    // SSE messages are separated by blank lines
+    const parts = buffer.split(&#39;\n\n&#39;)
+    buffer = parts.pop()
+    for (const part of parts) {
+      if (part.startsWith(&#39;data: &#39;)) {
+        onChunk(part.slice(6))     // append to UI
+      }
+    }
+  }
+}</code></pre>
+</div>
+
+</div>
+
+<p><strong><code>reader.read()</code> = raw bytes; the loop is the SSE parser.</strong> <code>done</code> just means "server closed the stream" — the loop runs until then, picking out <code>data:</code> payloads and ignoring <code>event:</code> lines entirely.</p>
+<p>Three moving parts: <strong>(1)</strong> backend <code>yield</code>s chunks instead of returning a full response, <strong>(2)</strong> Flask sends them with <code>text/event-stream</code> MIME, <strong>(3)</strong> the frontend reads the response body and calls <code>onChunk</code> per piece. Same idea works with FastAPI, Node/Express, or any framework that can flush mid-response.</p>
+
+    <hr>
+    <p class="sub">출처: <a href="https://ksetp.netlify.app/foundations" target="_blank" rel="noopener">https://ksetp.netlify.app/foundations</a> · ksept-lab 학습 아카이브</p>
+  </div>
+</div>
+</body>
+</html>

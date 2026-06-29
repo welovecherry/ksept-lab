@@ -1,0 +1,1004 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Architecture &amp; Agents · ksept-lab 튜토리얼</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="side-title"><a href="../index.html">📒 ksept-lab</a></div>
+    <div class="side-group">📚 튜토리얼</div>
+    <nav><a href="index.html">개요</a><a href="setup.html">Setup</a><a href="foundations.html">Foundations</a><a href="tools.html">Tools &amp; Structure</a><a href="context.html">Context Management</a><a href="agents.html" class="active">Architecture &amp; Agents</a><a href="production.html">Production</a><a href="workshop.html">Workshop</a></nav>
+    <div class="side-foot">출처: ksetp.netlify.app<br>로컬 생성 후 커밋</div>
+  </aside>
+  <div class="wrap">
+    <h1>Architecture &amp; Agents</h1>
+    <p class="sub">Module 5/7 · 슬라이드 18개 · <a href="https://ksetp.netlify.app/agents" target="_blank" rel="noopener">원본 슬라이드 ↗</a></p>
+    <p class="sub">에이전트 루프, Claude Code 내부, 서브에이전트, 멀티모델 라우팅, 컴퓨터 유즈, 안전</p>
+    <details class="toc"><summary>이 모듈의 슬라이드 18개</summary><ol><li><a href="#slide-1">1. Architecture &amp;amp; Agents</a></li><li><a href="#slide-2">2. What you&#x27;ll learn</a></li><li><a href="#slide-3">3. The agent loop</a></li><li><a href="#slide-4">4. What is Claude Code?</a></li><li><a href="#slide-5">5. Subagents</a></li><li><a href="#slide-6">6. Memory scopes</a></li><li><a href="#slide-7">7. Multi-model routing</a></li><li><a href="#slide-8">8. Prompt caching</a></li><li><a href="#slide-9">9. Long-running &amp;amp; async</a></li><li><a href="#slide-10">10. Progress messages</a></li><li><a href="#slide-11">11. Computer use</a></li><li><a href="#slide-12">12. Safety in agents</a></li><li><a href="#slide-13">13. Where this leaves you</a></li><li><a href="#slide-14">14. Project</a></li><li><a href="#slide-15">15. A data-analyst agent</a></li><li><a href="#slide-16">16. As a Managed Agent</a></li><li><a href="#slide-17">17. Anthropic runs the loop</a></li><li><a href="#slide-18">18. Next</a></li></ol></details>
+<h2 id="slide-1">1. Architecture &amp; Agents <a class="anchor" href="#slide-1">#</a></h2>
+<div>
+
+<p>Module 5 · Day Five</p>
+</div>
+
+<div>
+
+</div>
+
+<div>
+
+<p>Architecture &amp; Agents</p>
+</div>
+
+<div>
+
+<p>A survey of patterns specific to LLM apps</p>
+</div>
+
+<h2 id="slide-2">2. What you'll learn <a class="anchor" href="#slide-2">#</a></h2>
+<div>
+
+<div>
+
+<p>Lecture</p>
+</div>
+
+<div>
+
+<p>What you'll learn in this module</p>
+</div>
+
+<p>This is a <strong>survey</strong> — small examples of each pattern, no deep dives. The goal is vocabulary and shape recognition, so you can navigate the space when you build things later.</p>
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Patterns we'll cover</p>
+</div>
+
+<ul>
+<li>The agent loop as the foundation</li>
+<li>What Claude Code actually is, architecturally</li>
+<li>Subagents — recursion for agents</li>
+<li>Memory scopes — what persists, where</li>
+<li>Multi-model routing</li>
+<li>Prompt caching for static prefixes</li>
+<li>Long-running &amp; async tasks</li>
+<li>Computer use (vision agents)</li>
+<li>Safety / permissions in agents</li>
+</ul>
+</div>
+
+<div>
+
+<div>
+
+<p>Vocabulary</p>
+</div>
+
+<ul>
+<li>Agent, agentic loop, harness</li>
+<li>Subagent, Task tool, context isolation</li>
+<li>Tool registry, dispatcher</li>
+<li>Permission gate, hook</li>
+<li>Computer use, vision tool</li>
+<li>Router, fallback, ensemble</li>
+<li><code>cache_control: ephemeral</code></li>
+</ul>
+</div>
+
+</div>
+
+<h2 id="slide-3">3. The agent loop <a class="anchor" href="#slide-3">#</a></h2>
+<div>
+
+<div>
+
+<p>Lecture</p>
+</div>
+
+<div>
+
+<p>The agent loop — the engine</p>
+</div>
+
+<p>Every "agentic" system you've heard of has this loop at its core. The differences are what's wrapped around it.</p>
+</div>
+
+<pre><code>def agent(messages, tools):
+    while True:
+        resp = client.messages.create(
+            model=&quot;claude-sonnet-4-6&quot;,
+            max_tokens=2048,
+            system=&quot;...&quot;,
+            messages=messages,
+            tools=tools,
+        )
+        messages.append({&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: resp.content})
+
+        if resp.stop_reason == &quot;end_turn&quot;:
+            return resp                              # we&#39;re done
+
+        results = []
+        for block in resp.content:
+            if block.type == &quot;tool_use&quot;:
+                out = dispatch(block.name, block.input)
+                results.append({
+                    &quot;type&quot;: &quot;tool_result&quot;,
+                    &quot;tool_use_id&quot;: block.id,
+                    &quot;content&quot;: out,
+                })
+        messages.append({&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: results})</code></pre>
+<p>~20 lines. Everything else in this module is a layer that sits above this loop or wires more tools into it.</p>
+<h2 id="slide-4">4. What is Claude Code? <a class="anchor" href="#slide-4">#</a></h2>
+<div>
+
+<div>
+
+<p>Lecture</p>
+</div>
+
+<div>
+
+<p>What is Claude Code, actually?</p>
+</div>
+
+<p>Claude Code (and tools like it — Cursor, Aider, Cline, Zed agent) are the agent loop above plus a thick stack of supporting machinery.</p>
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>User interface</p>
+</div>
+
+<div>
+
+<p>CLI · IDE extensions · slash commands · plan mode · status display</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<p>Permission &amp; hooks</p>
+</div>
+
+<div>
+
+<p>per-tool gating · auto-accept policy · <code>PreToolUse</code> / <code>PostToolUse</code> hooks for safety + logging</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<p>Tool registry</p>
+</div>
+
+<div>
+
+<p>~25 built-ins (<code>Read</code>, <code>Edit</code>, <code>Bash</code>, <code>Grep</code>, <code>Task</code>, …) + MCP servers</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<p>Agent loop</p>
+</div>
+
+<div>
+
+<p>Claude API messages + tools + <code>stop_reason</code> — the engine from the previous slide</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<p>Subagents</p>
+</div>
+
+<div>
+
+<p><code>Task</code> tool spawns a child Claude with its own context window; returns a summary</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<p>Memory</p>
+</div>
+
+<div>
+
+<p>project (<code>CLAUDE.md</code>) · user (<code>~/.claude/</code>) · conversation (current session) · context compression</p>
+</div>
+
+</div>
+
+</div>
+
+<p>"Claude Code is a tool-use loop with a thick harness." The same recipe applies to building your own agentic app — you don't need to invent it from scratch.</p>
+<h2 id="slide-5">5. Subagents <a class="anchor" href="#slide-5">#</a></h2>
+<div>
+
+<div>
+
+<p>Lecture</p>
+</div>
+
+<div>
+
+<p>Subagents — recursion for agents</p>
+</div>
+
+<p>A subagent is just <em>another Claude conversation</em>, started by the parent, with its own context window, tool set, and system prompt. The parent gets back a single summary.</p>
+</div>
+
+<pre><code># Inside the parent agent&#39;s loop, the model decides to call the Task tool:
+{
+  &quot;type&quot;: &quot;tool_use&quot;,
+  &quot;name&quot;: &quot;Task&quot;,
+  &quot;input&quot;: {
+    &quot;description&quot;: &quot;Find all HTTP route definitions&quot;,
+    &quot;subagent_type&quot;: &quot;explore&quot;,
+    &quot;prompt&quot;: &quot;Search the codebase for Flask/FastAPI/Express route decorators.
+               Return a list of (file, line, route) tuples. Don&#39;t summarise the
+               implementations — just the routes.&quot;
+  }
+}
+# The harness runs a brand-new Claude session with that prompt + the
+# Explore agent&#39;s tools. Parent receives only the final report.</code></pre>
+<div>
+
+<div>
+
+<p>Why use them</p>
+</div>
+
+<div>
+
+<div>
+
+<p>· <strong>Context isolation</strong> — the parent doesn't see the 40 files the explorer read</p>
+</div>
+
+<div>
+
+<p>· <strong>Specialization</strong> — each subagent type has a tuned system prompt + restricted tools</p>
+</div>
+
+<div>
+
+<p>· <strong>Parallelism</strong> — multiple subagents can run concurrently</p>
+</div>
+
+<div>
+
+<p>· <strong>Recursion</strong> — subagents can call subagents (use with care; budgets matter)</p>
+</div>
+
+</div>
+
+</div>
+
+<h2 id="slide-6">6. Memory scopes <a class="anchor" href="#slide-6">#</a></h2>
+<div>
+
+<div>
+
+<p>Lecture</p>
+</div>
+
+<div>
+
+<p>Memory — what persists, where</p>
+</div>
+
+<p>"Memory" in LLM apps isn't one thing — it's several different scopes with different lifecycles, storage, and retrieval strategies.</p>
+</div>
+
+<table>
+<thead>
+<tr>
+<th>Scope</th>
+<th>Lifetime</th>
+<th>Stored where</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Conversation</strong></td>
+<td>Current session</td>
+<td>In-process / Redis</td>
+<td>The message array on every turn</td>
+</tr>
+<tr>
+<td><strong>Session</strong></td>
+<td>Until user logs out</td>
+<td>Server-side store</td>
+<td>Current open files, selected scope</td>
+</tr>
+<tr>
+<td><strong>User</strong></td>
+<td>Across sessions</td>
+<td>DB or files keyed by user</td>
+<td>"Larry prefers terse answers"; saved preferences</td>
+</tr>
+<tr>
+<td><strong>Project</strong></td>
+<td>While project exists</td>
+<td>Repo (e.g., <code>CLAUDE.md</code>)</td>
+<td>Coding conventions, file map, key paths</td>
+</tr>
+<tr>
+<td><strong>World</strong></td>
+<td>Indefinite</td>
+<td>Vector store / RAG</td>
+<td>Indexed documents, web data, knowledge bases</td>
+</tr>
+</tbody>
+</table>
+<p>A serious agent uses several at once. Claude Code reads <code>CLAUDE.md</code> (project), <code>~/.claude/memory/*.md</code> (user), and the running session (conversation) on every turn — three scopes, one composite prompt.</p>
+<h2 id="slide-7">7. Multi-model routing <a class="anchor" href="#slide-7">#</a></h2>
+<div>
+
+<div>
+
+<p>Lecture</p>
+</div>
+
+<div>
+
+<p>Multi-model routing</p>
+</div>
+
+<p>Use a cheap model to decide what to do; an expensive model to do it. Bound cost without giving up quality on the calls that matter.</p>
+</div>
+
+<pre><code>def route(task: str) -&gt; str:
+    # 1. Cheap classifier — Haiku, no thinking, low effort
+    kind = call(
+        model=&quot;claude-haiku-4-5&quot;,
+        system=&quot;Classify the task as trivial / reasoning / general.&quot;,
+        user=task,
+        schema=TaskKind,
+        thinking=False, effort=&quot;low&quot;,
+    )
+
+    # 2. Route the actual work to the right model
+    if kind == &quot;trivial&quot;:
+        return call(model=&quot;claude-haiku-4-5&quot;, user=task)
+    if kind == &quot;reasoning&quot;:
+        return call(model=&quot;claude-opus-4-7&quot;, user=task, effort=&quot;high&quot;)
+    return call(model=&quot;claude-sonnet-4-6&quot;, user=task)</code></pre>
+<div>
+
+<div>
+
+<p>When this pays:</p>
+</div>
+
+<ul>
+<li>High volume + variable difficulty (lots of cheap calls, occasional expensive ones)</li>
+<li>Latency-sensitive paths (route obvious things to fast model)</li>
+<li>Cost ceilings (cap the % of calls that hit the expensive model)</li>
+</ul>
+</div>
+
+<p>"Route quality where it matters; route speed where it doesn't." Also works with fallbacks (primary fails → try secondary) and ensembles (run two, pick best).</p>
+<h2 id="slide-8">8. Prompt caching <a class="anchor" href="#slide-8">#</a></h2>
+<div>
+
+<div>
+
+<p>Lecture</p>
+</div>
+
+<div>
+
+<p>Prompt caching — pay once for the static prefix</p>
+</div>
+
+<p>Long, static system prompts (rules, schemas, examples, retrieved context) get expensive when called often. Anthropic's prompt cache marks a prefix as cacheable; repeated calls with the same prefix read from cache at ~10% the cost.</p>
+</div>
+
+<div>
+
+<pre><code>resp = client.messages.create(
+    model=&quot;claude-sonnet-4-6&quot;,
+    max_tokens=512,
+    system=[{
+        &quot;type&quot;: &quot;text&quot;,
+        &quot;text&quot;: LONG_SYSTEM_PROMPT,             # 4KB+
+        &quot;cache_control&quot;: {&quot;type&quot;: &quot;ephemeral&quot;}, # cache it
+    }],
+    messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: user_query}],
+)
+
+# First call:
+#   usage.cache_creation_input_tokens = 8200
+#   usage.cache_read_input_tokens     = 0
+
+# Next call within 5 min, same system prefix:
+#   usage.cache_creation_input_tokens = 0
+#   usage.cache_read_input_tokens     = 8200   # ~90% cheaper</code></pre>
+<div>
+
+<div>
+
+<p>When it pays</p>
+</div>
+
+<ul>
+<li>Long static system prompts repeated across many calls (rules + examples + schemas)</li>
+<li>RAG: cache the retrieved context for follow-up questions on the same chunks</li>
+<li>Agentic loops: each turn re-sends the same tool definitions — cache them</li>
+</ul>
+<p>Min cacheable prefix ~4096 tokens. Cache lives 5 minutes (sliding window — every read extends it). Static rules + schemas go in the cached prefix; the dynamic question goes in <code>messages</code>. Pairs naturally with multi-model routing — cache the part that doesn't change, route what does.</p>
+</div>
+
+</div>
+
+<h2 id="slide-9">9. Long-running &amp; async <a class="anchor" href="#slide-9">#</a></h2>
+<div>
+
+<div>
+
+<p>Lecture</p>
+</div>
+
+<div>
+
+<p>Long-running &amp; async tasks</p>
+</div>
+
+<p>Sometimes the work doesn't fit in one HTTP request. The agent needs an out-of-band way to track progress.</p>
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Patterns</p>
+</div>
+
+<ul>
+<li><strong>Background jobs</strong> — submit, get job_id, poll for status</li>
+<li><strong>Subprocess monitoring</strong> — start a long shell process; agent watches stdout</li>
+<li><strong>Scheduled wake-ups</strong> — agent says "wake me in N min"; server reschedules</li>
+<li><strong>Webhooks / callbacks</strong> — external event resumes the agent</li>
+<li><strong>Batch APIs</strong> — Anthropic + others offer 50% discount for non-urgent batched calls</li>
+</ul>
+</div>
+
+<div>
+
+<div>
+
+<p>Sketch</p>
+</div>
+
+<pre><code># Agent kicks off work it can&#39;t wait on
+job_id = submit_task(
+    prompt=&quot;Analyse this 2GB log file&quot;,
+    callback_url=&quot;https://my.app/agent/resume&quot;,
+)
+return f&quot;Started job {job_id}, will resume when done.&quot;
+
+# Later, external worker finishes and POSTs back:
+@app.route(&quot;/agent/resume&quot;, methods=[&quot;POST&quot;])
+def resume():
+    result = request.json[&quot;result&quot;]
+    continue_agent_with(result)</code></pre>
+</div>
+
+</div>
+
+<p>Stateful agents need a way to pause and resume. The architecture choice is: <strong>where does the state live while the agent is paused?</strong></p>
+<h2 id="slide-10">10. Progress messages <a class="anchor" href="#slide-10">#</a></h2>
+<div>
+
+<div>
+
+<p>Lecture</p>
+</div>
+
+<div>
+
+<p>Progress messages — don't go silent</p>
+</div>
+
+<p>A long operation that prints nothing reads as <em>hung</em>. Have the worker <strong>emit progress events as it goes</strong>, and stream them to the user. This is exactly what makes Claude Code feel alive — "Reading 12 files…", "Running tests…".</p>
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Principles</p>
+</div>
+
+<ul>
+<li><strong>Emit early and often</strong> — one event per meaningful step, not just at the end</li>
+<li><strong>Human-readable</strong> — say what's happening ("Calling search_docs…"), not just a spinner</li>
+<li><strong>Decouple producer from transport</strong> — the worker <code>yield</code>s events; the caller decides how to surface them (SSE, websocket, log)</li>
+<li><strong>Always send a terminal event</strong> — a <code>done</code> or <code>error</code> so the client knows to stop waiting</li>
+</ul>
+</div>
+
+<div>
+
+<div>
+
+<p>Caller — stream each event (SSE)</p>
+</div>
+
+<pre><code>@app.route(&quot;/agent&quot;)
+def agent():
+    def stream():
+        for ev in run_agent(request.args[&quot;q&quot;], TOOLS):
+            yield f&quot;data: {json.dumps(asdict(ev))}\n\n&quot;
+    return Response(stream(),
+                    mimetype=&quot;text/event-stream&quot;)</code></pre>
+</div>
+
+</div>
+
+<pre><code>from dataclasses import dataclass, asdict
+from typing import Iterator
+
+@dataclass
+class Progress:
+    step: str          # shown to the user
+    done: bool = False
+
+def run_agent(user_msg, tools) -&gt; Iterator[Progress]:
+    messages = [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: user_msg}]
+    while True:
+        resp = client.messages.create(
+            model=&quot;claude-sonnet-4-6&quot;, max_tokens=1024,
+            tools=tools, messages=messages,
+        )
+        messages.append({&quot;role&quot;: &quot;assistant&quot;,
+                         &quot;content&quot;: resp.content})
+
+        calls = [b for b in resp.content
+                 if b.type == &quot;tool_use&quot;]
+        if not calls:                  # model is done
+            yield Progress(&quot;Done&quot;, done=True)
+            return
+
+        results = []
+        for call in calls:
+            yield Progress(f&quot;Calling {call.name}…&quot;)  # ← before the slow part
+            output = dispatch(call.name, call.input)
+            results.append({&quot;type&quot;: &quot;tool_result&quot;,
+                            &quot;tool_use_id&quot;: call.id,
+                            &quot;content&quot;: output})
+        messages.append({&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: results})</code></pre>
+</div>
+
+<p>Emitting before each tool call is what lets the user watch the agent's reasoning unfold. The same generator works for any long operation — an indexing job, a batch run, a shell process — and never knows whether it's feeding a CLI, a web UI, or a log file. That's the point.</p>
+<h2 id="slide-11">11. Computer use <a class="anchor" href="#slide-11">#</a></h2>
+<div>
+
+<div>
+
+<p>Lecture</p>
+</div>
+
+<div>
+
+<p>Computer use — when the screen IS the API</p>
+</div>
+
+<p>Anthropic's <strong>computer use</strong> (and similar tools from OpenAI, Google) lets the model see screenshots and emit mouse/keyboard actions.</p>
+</div>
+
+<pre><code>while not done:
+    screenshot = take_screenshot()
+    resp = client.messages.create(
+        model=&quot;claude-opus-4-7&quot;,
+        tools=[COMPUTER_USE_TOOL],          # click, type, scroll, screenshot
+        messages=messages + [{
+            &quot;role&quot;: &quot;user&quot;,
+            &quot;content&quot;: [{&quot;type&quot;: &quot;image&quot;, &quot;source&quot;: {...}, &quot;data&quot;: screenshot}],
+        }],
+    )
+    for block in resp.content:
+        if block.type == &quot;tool_use&quot;:
+            perform(block.input)            # actual mouse/keyboard event</code></pre>
+<ul>
+<li><strong>When to use</strong>: automating apps with no API; testing flows; legacy systems</li>
+<li><strong>Costs</strong>: slow (each turn = screenshot + action), expensive (vision tokens), brittle (UI changes break it)</li>
+<li><strong>Alternative</strong>: if the target has an API or accessibility tree, use that — vision is the last resort</li>
+</ul>
+<p>Computer use is the most "agent-like" capability available today — autonomous action in a real UI. It's also the most expensive per useful step. Use sparingly.</p>
+<h2 id="slide-12">12. Safety in agents <a class="anchor" href="#slide-12">#</a></h2>
+<div>
+
+<div>
+
+<p>Lecture</p>
+</div>
+
+<div>
+
+<p>Safety in agents — permissions &amp; limits</p>
+</div>
+
+<p>Agents that can act need different safety thinking than chatbots that can only talk. Two patterns dominate.</p>
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Permission gates</p>
+</div>
+
+<p>Each tool call is mediated. Categories of policy:</p>
+<ul>
+<li><strong>Always allow</strong> — read-only ops, safe by definition</li>
+<li><strong>Confirm</strong> — destructive ops (file delete, git push, API mutation)</li>
+<li><strong>Sandbox</strong> — bash inside a container, network restricted</li>
+<li><strong>Never</strong> — hard-coded refusals (delete prod, exfiltrate keys)</li>
+</ul>
+<p>Claude Code, Cursor, Cline all expose these as user-tunable policies.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Hard limits</p>
+</div>
+
+<ul>
+<li><strong>Step budget</strong> — max iterations of the loop</li>
+<li><strong>Token budget</strong> — kill the agent if it crosses N tokens</li>
+<li><strong>Time budget</strong> — wall-clock deadline</li>
+<li><strong>Tool-call rate</strong> — circuit-break on repeated identical calls (loop detection)</li>
+<li><strong>Scope</strong> — limit which files / endpoints / hosts the agent can touch</li>
+</ul>
+</div>
+
+</div>
+
+<p>Agents fail interestingly. The risk isn't usually one disastrous tool call — it's <em>10,000 small ones</em> that quietly burn budget, fill logs, or thrash on a bad assumption. Hard limits catch the latter.</p>
+<h2 id="slide-13">13. Where this leaves you <a class="anchor" href="#slide-13">#</a></h2>
+<div>
+
+<div>
+
+<p>Lecture</p>
+</div>
+
+<div>
+
+<p>Where this leaves you</p>
+</div>
+
+<p>You now have vocabulary and shape for:</p>
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>The agent loop</p>
+</div>
+
+<p>Tool calls in a loop until <code>end_turn</code>. ~20 lines.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Claude Code</p>
+</div>
+
+<p>Loop + tools + subagents + permissions + memory + MCP.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Subagents</p>
+</div>
+
+<p>Recursion. Context isolation. Specialization. Parallelism.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Memory scopes</p>
+</div>
+
+<p>Conversation / session / user / project / world.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Routing</p>
+</div>
+
+<p>Cheap-decides + expensive-executes. Bound cost without losing quality.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Prompt caching</p>
+</div>
+
+<p>Cache the static prefix. ~90% cheaper on repeat calls.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Long-running</p>
+</div>
+
+<p>Background, callbacks, batch. Where does state live while you wait?</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Safety</p>
+</div>
+
+<p>Permission gates + hard limits. Catch the 10,000 small failures.</p>
+</div>
+
+</div>
+
+<p>You can build a capable agent with everything above. But shipping it to real users takes more than architecture — you have to <em>know</em> it works and keep it safe. That's next.</p>
+<h2 id="slide-14">14. Project <a class="anchor" href="#slide-14">#</a></h2>
+<div>
+
+<p>Architecture &amp; Agents</p>
+</div>
+
+<div>
+
+</div>
+
+<div>
+
+<p>Project</p>
+</div>
+
+<div>
+
+<p>Build a data-analyst agent</p>
+</div>
+
+<h2 id="slide-15">15. A data-analyst agent <a class="anchor" href="#slide-15">#</a></h2>
+<div>
+
+<div>
+
+<p>Project</p>
+</div>
+
+<div>
+
+<p>A data-analyst agent</p>
+</div>
+
+<p>The agent loop from this module, wired to three read-only tools over a SQLite database. It runs as an interactive, <strong>multi-turn</strong> session — like this prompt — so follow-ups keep the context.</p>
+</div>
+
+<div>
+
+<p><a href="https://ksetp.netlify.app/assets/agents/agent-app.zip" download=""><span>↓</span> Starter project <span>agent-app.zip</span></a></p>
+<pre><code>you › Top product by revenue last quarter?
+  → list_tables() → describe_table(order_items) → run_query(SELECT …)
+  Robot Vacuum — $46,307 (most recent quarter, completed orders).
+
+you › What about the quarter before that?  # ← follow-up uses the history
+  → run_query(SELECT …)
+  Robot Vacuum again — $29,637, so revenue jumped ~56%.</code></pre>
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>What's in the zip</p>
+</div>
+
+<ul>
+<li><code>agent.py</code> — the ~20-line loop + a CLI</li>
+<li><code>tools.py</code> — <code>list_tables</code>, <code>describe_table</code>, <code>run_query</code></li>
+<li><code>build_db.py</code> + <code>data.db</code> — a seeded store (~3k orders, 18 months)</li>
+</ul>
+</div>
+
+<div>
+
+<div>
+
+<p>Your job (pick 2)</p>
+</div>
+
+<ol type="1">
+<li><strong>Add a tool</strong> — e.g. <code>monthly_trend</code> or <code>save_report</code>; register it in <code>TOOLS</code> + <code>dispatch</code>.</li>
+<li><strong>Probe the limits</strong> — find a question it gets wrong or answers inefficiently; show the transcript.</li>
+<li><strong>Tighten the loop</strong> — stream progress, add loop detection, or surface the final SQL.</li>
+<li><strong>Swap the data</strong> — point <code>build_db.py</code> at a different schema; the agent should work unchanged.</li>
+</ol>
+</div>
+
+</div>
+
+<p>Spot the two safety patterns from this module already in place: <strong>read-only by construction</strong> (the query tool opens the DB in <code>mode=ro</code>, so SQLite rejects any write) and a <strong>hard step budget</strong> (<code>MAX_STEPS</code>) so a confused agent can't loop forever.</p>
+<h2 id="slide-16">16. As a Managed Agent <a class="anchor" href="#slide-16">#</a></h2>
+<div>
+
+<div>
+
+<p>Beyond this project</p>
+</div>
+
+<div>
+
+<p>Same agent, as a Claude Managed Agent</p>
+</div>
+
+<p>Our project is a tool-use loop <em>you</em> own. <strong>Managed Agents</strong> (beta) flips it: Anthropic runs the loop and hosts the workspace; you define a persisted agent and react to an event stream.</p>
+</div>
+
+<table>
+<thead>
+<tr>
+<th></th>
+<th>This project — Messages API + tool use</th>
+<th>Managed Agents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>The loop</strong></td>
+<td>You write the ~20-line <code>while</code> loop</td>
+<td>Anthropic's orchestration layer runs it</td>
+</tr>
+<tr>
+<td><strong>Multi-turn state</strong></td>
+<td>Your <code>messages</code> list</td>
+<td>The session — stateful server-side (free)</td>
+</tr>
+<tr>
+<td><strong>Tools run</strong></td>
+<td>On your machine (<code>tools.py</code>)</td>
+<td>In a hosted container — or host-side as custom tools</td>
+</tr>
+<tr>
+<td><strong>Config</strong></td>
+<td>Inline in the script</td>
+<td>A persisted, versioned <code>Agent</code> + a <code>Session</code> per run</td>
+</tr>
+<tr>
+<td><strong>You consume</strong></td>
+<td>A function's return value</td>
+<td>An SSE <strong>event stream</strong></td>
+</tr>
+</tbody>
+</table>
+<p>"The agent loop is ~20 lines; everything else is harness." Managed Agents is Anthropic shipping the harness. For a self-contained CLI, the loop you own is the right call — reach for Managed Agents when you want hosted execution, versioned configs, file mounts, or server-managed sessions.</p>
+<h2 id="slide-17">17. Anthropic runs the loop <a class="anchor" href="#slide-17">#</a></h2>
+<div>
+
+<div>
+
+<p>Beyond this project</p>
+</div>
+
+<div>
+
+<p>The same tools — Anthropic runs the loop</p>
+</div>
+
+<p>Keep <code>tools.py</code> exactly as-is (read-only <code>run_query</code> and all). Declare the three tools as <code>custom</code>, and our <code>dispatch()</code> moves from a <code>while</code> loop into an event handler — the DB never leaves your machine.</p>
+</div>
+
+<pre><code>from tools import dispatch          # the SAME read-only tools.py, unchanged
+
+# ── once: persist a versioned agent (model/system/tools live here, not on the session) ──
+agent = client.beta.agents.create(
+    name=&quot;Data Analyst&quot;, model=&quot;claude-sonnet-4-6&quot;,
+    system=&quot;Inspect the schema before querying…&quot;,
+    tools=CUSTOM_TOOLS,             # list_tables / describe_table / run_query, each type:&quot;custom&quot;
+)
+
+# ── per run: no while-loop — react to the event stream ──
+session = client.beta.sessions.create(agent=agent.id, environment_id=env.id)
+with client.beta.sessions.events.stream(session_id=session.id) as stream:
+    client.beta.sessions.events.send(session_id=session.id, events=[
+        {&quot;type&quot;: &quot;user.message&quot;, &quot;content&quot;: [{&quot;type&quot;: &quot;text&quot;, &quot;text&quot;: question}]}])
+    for event in stream:
+        if event.type == &quot;agent.custom_tool_use&quot;:
+            out = dispatch(event.name, event.input)     # ← our tools, our machine, our mode=ro gate
+            client.beta.sessions.events.send(session_id=session.id, events=[
+                {&quot;type&quot;: &quot;user.custom_tool_result&quot;,
+                 &quot;custom_tool_use_id&quot;: event.id,
+                 &quot;content&quot;: [{&quot;type&quot;: &quot;text&quot;, &quot;text&quot;: out}]}])
+        elif event.type == &quot;session.status_idle&quot; and event.stop_reason.type != &quot;requires_action&quot;:
+            break</code></pre>
+<p>Multi-turn is now free — the <strong>session</strong> is stateful server-side, so the <code>messages</code> list we hand-maintained disappears. (Alternatively: mount <code>data.db</code> as a file and let the built-in toolset query it inside Anthropic's sandbox — where the read-only file mount replaces our <code>mode=ro</code> gate.)</p>
+<h2 id="slide-18">18. Next <a class="anchor" href="#slide-18">#</a></h2>
+<div>
+
+<p>Up next</p>
+</div>
+
+<div>
+
+</div>
+
+<div>
+
+<p>Production Considerations</p>
+</div>
+
+<div>
+
+<p>Eval &amp; testing, guardrails &amp; security — making it trustworthy</p>
+</div>
+
+    <hr>
+    <p class="sub">출처: <a href="https://ksetp.netlify.app/agents" target="_blank" rel="noopener">https://ksetp.netlify.app/agents</a> · ksept-lab 학습 아카이브</p>
+  </div>
+</div>
+</body>
+</html>

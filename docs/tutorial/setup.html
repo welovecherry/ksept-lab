@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Setup · ksept-lab 튜토리얼</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="side-title"><a href="../index.html">📒 ksept-lab</a></div>
+    <div class="side-group">📚 튜토리얼</div>
+    <nav><a href="index.html">개요</a><a href="setup.html" class="active">Setup</a><a href="foundations.html">Foundations</a><a href="tools.html">Tools &amp; Structure</a><a href="context.html">Context Management</a><a href="agents.html">Architecture &amp; Agents</a><a href="production.html">Production</a><a href="workshop.html">Workshop</a></nav>
+    <div class="side-foot">출처: ksetp.netlify.app<br>로컬 생성 후 커밋</div>
+  </aside>
+  <div class="wrap">
+    <h1>Setup</h1>
+    <p class="sub">Module 1/7 · 슬라이드 9개 · <a href="https://ksetp.netlify.app/setup" target="_blank" rel="noopener">원본 슬라이드 ↗</a></p>
+    <p class="sub">환경 구성: VSCode·Git·Node·Python·Claude Code·API 키</p>
+    <details class="toc"><summary>이 모듈의 슬라이드 9개</summary><ol><li><a href="#slide-1">1. Setup</a></li><li><a href="#slide-2">2. What we&#x27;ll install</a></li><li><a href="#slide-3">3. 1 · VSCode</a></li><li><a href="#slide-4">4. 2 · Git</a></li><li><a href="#slide-5">5. 3 · Node.js</a></li><li><a href="#slide-6">6. 4 · Python</a></li><li><a href="#slide-7">7. 5 · Project folder + venv</a></li><li><a href="#slide-8">8. 6 · Claude Code CLI</a></li><li><a href="#slide-9">9. 7 · Anthropic API key</a></li></ol></details>
+<h2 id="slide-1">1. Setup <a class="anchor" href="#slide-1">#</a></h2>
+<div>
+
+<p>Module 1 · Before class</p>
+</div>
+
+<div>
+
+</div>
+
+<div>
+
+<p>Setup</p>
+</div>
+
+<div>
+
+<p>Get your environment ready — before class</p>
+</div>
+
+<h2 id="slide-2">2. What we'll install <a class="anchor" href="#slide-2">#</a></h2>
+<div>
+
+<div>
+
+<p>Setup</p>
+</div>
+
+<div>
+
+<p>What we'll install</p>
+</div>
+
+</div>
+
+<ol type="1">
+<li>VSCode — your EDI (not strictly necessary but you will want to look at code)</li>
+<li><strong>Node.js (LTS)</strong> — needed for the React frontend tooling</li>
+<li><strong>Python 3.11</strong> — needed for the Flask backend</li>
+<li><strong>Claude Code CLI</strong> — the AI coding assistant we'll use to scaffold the app</li>
+<li><strong>Anthropic API key</strong> — stored once in a shared <code>~/ksept-lab/.env</code> that every example app in this course reads from</li>
+</ol>
+<div>
+
+<p>Every command below has <strong>macOS</strong> and <strong>Windows</strong> tabs — pick your OS on any block and the whole deck follows. (macOS uses <a href="https://brew.sh" target="_blank" rel="noreferrer">Homebrew</a>; Windows uses <a href="https://learn.microsoft.com/windows/package-manager/winget/" target="_blank" rel="noreferrer">winget</a>, which ships with Windows 11.)</p>
+<p>After installs, we'll have Claude Code scaffold a hello-world frontend + backend in one prompt, then walk through what it built.</p>
+</div>
+
+<h2 id="slide-3">3. 1 · VSCode <a class="anchor" href="#slide-3">#</a></h2>
+<div>
+
+<div>
+
+<p>Setup · 1 of 7</p>
+</div>
+
+<div>
+
+<p>Install VSCode</p>
+</div>
+
+</div>
+
+<p>Download from <a href="https://code.visualstudio.com" target="_blank" rel="noreferrer">code.visualstudio.com</a> and run the installer, or use your package manager:</p>
+<div>
+
+<div>
+
+<p>macOS</p>
+<p>Windows</p>
+</div>
+
+<pre><code>brew install --cask visual-studio-code
+
+winget install Microsoft.VisualStudioCode</code></pre>
+</div>
+
+<div>
+
+<div>
+
+<p>Verify</p>
+</div>
+
+<pre><code>code --version</code></pre>
+</div>
+
+<p>If the <code>code</code> command isn't found: on <strong>macOS</strong>, open VSCode → <span class="kbd">⌘⇧P</span> → "Shell Command: Install 'code' command in PATH". On <strong>Windows</strong>, re-run the installer and tick "Add to PATH", then open a new terminal.</p>
+<h2 id="slide-4">4. 2 · Git <a class="anchor" href="#slide-4">#</a></h2>
+<div>
+
+<div>
+
+<p>Setup · 2 of 7</p>
+</div>
+
+<div>
+
+<p>Install Git</p>
+</div>
+
+</div>
+
+<p>We'll use git to track each fix you make as its own commit — that's how you'll "walk the diff" when you present your work to the class. macOS usually already has git (via the Xcode Command Line Tools); Windows needs an explicit install.</p>
+<div>
+
+<div>
+
+<p>macOS</p>
+<p>Windows</p>
+</div>
+
+<pre><code>brew install git    # only if it isn&#39;t already present
+
+winget install Git.Git</code></pre>
+</div>
+
+<div>
+
+<div>
+
+<p>Verify</p>
+</div>
+
+<pre><code>git --version    # git version 2.x.x</code></pre>
+</div>
+
+<p>No GitHub account or remote needed — git works completely locally. A repo is just a hidden <code>.git/</code> folder inside your project.</p>
+<h2 id="slide-5">5. 3 · Node.js <a class="anchor" href="#slide-5">#</a></h2>
+<div>
+
+<div>
+
+<p>Setup · 3 of 7</p>
+</div>
+
+<div>
+
+<p>Install Node.js (LTS)</p>
+</div>
+
+</div>
+
+<p>Needed to build and run the React frontend.</p>
+<div>
+
+<div>
+
+<p>macOS</p>
+<p>Windows</p>
+</div>
+
+<pre><code>brew install node
+
+winget install OpenJS.NodeJS.LTS</code></pre>
+</div>
+
+<p><strong>Or download:</strong> <a href="https://nodejs.org" target="_blank" rel="noreferrer">nodejs.org</a> → LTS installer (v20 or v22).</p>
+<div>
+
+<div>
+
+<p>Verify</p>
+</div>
+
+<pre><code>node --version    # v20.x.x or v22.x.x
+npm --version</code></pre>
+</div>
+
+<h2 id="slide-6">6. 4 · Python <a class="anchor" href="#slide-6">#</a></h2>
+<div>
+
+<div>
+
+<p>Setup · 4 of 7</p>
+</div>
+
+<div>
+
+<p>Install Python 3.11</p>
+</div>
+
+</div>
+
+<p>The Flask backend uses Python 3.11.</p>
+<div>
+
+<div>
+
+<p>macOS</p>
+<p>Windows</p>
+</div>
+
+<pre><code>brew install python@3.11
+
+winget install Python.Python.3.11</code></pre>
+</div>
+
+<div>
+
+<div>
+
+<p>Verify</p>
+</div>
+
+<pre><code>python3.11 --version    # Python 3.11.x
+
+py -3.11 --version      # Python 3.11.x</code></pre>
+</div>
+
+<p>On Windows, the <code>py</code> launcher picks a specific version with <code>-3.11</code>. Linux: install <code>python3.11</code> from your distro's package manager or <a href="https://www.python.org/downloads/" target="_blank" rel="noreferrer">python.org</a>.</p>
+<h2 id="slide-7">7. 5 · Project folder + venv <a class="anchor" href="#slide-7">#</a></h2>
+<div>
+
+<div>
+
+<p>Setup · 5 of 7</p>
+</div>
+
+<div>
+
+<p>Create your project folder and venv</p>
+</div>
+
+</div>
+
+<p>Pick a working directory and create a Python virtual environment for the backend dependencies. On Windows, use <strong>PowerShell</strong>.</p>
+<div>
+
+<div>
+
+<p>macOS</p>
+<p>Windows</p>
+</div>
+
+<pre><code>mkdir ~/ksept-lab
+cd ~/ksept-lab
+python3.11 -m venv .venv
+source .venv/bin/activate
+
+mkdir ~/ksept-lab
+cd ~/ksept-lab
+py -3.11 -m venv .venv
+.venv\Scripts\Activate.ps1</code></pre>
+</div>
+
+<p>A <em>venv</em> is an isolated Python environment for this project. Anything you <code>pip install</code> while it's active goes here, not into your system Python. <strong>Windows:</strong> if PowerShell blocks the activate script, run <code>Set-ExecutionPolicy -Scope CurrentUser RemoteSigned</code> once and try again.</p>
+<div>
+
+<div>
+
+<p>Verify</p>
+</div>
+
+<pre><code>which python    # should end in /ksept-lab/.venv/bin/python
+
+Get-Command python    # Source ends in \ksept-lab\.venv\Scripts\python.exe</code></pre>
+</div>
+
+<h2 id="slide-8">8. 6 · Claude Code CLI <a class="anchor" href="#slide-8">#</a></h2>
+<div>
+
+<div>
+
+<p>Setup · 6 of 7</p>
+</div>
+
+<div>
+
+<p>Install the Claude Code CLI</p>
+</div>
+
+</div>
+
+<p>Claude Code is an AI coding assistant that runs in your terminal. We'll use it to scaffold the hello-world app.</p>
+<div>
+
+<div>
+
+<p>macOS</p>
+<p>Windows</p>
+</div>
+
+<pre><code>npm install -g @anthropic-ai/claude-code
+
+irm https://claude.ai/install.ps1 | iex</code></pre>
+</div>
+
+<p><strong>Windows</strong> installs Claude Code as a self-contained binary (no Node needed) that auto-updates; <code>winget install Anthropic.ClaudeCode</code> also works. Installing <a href="https://git-scm.com/download/win" target="_blank" rel="noreferrer">Git for Windows</a> (step 2) lets it use a real Bash shell.</p>
+<div>
+
+<div>
+
+<div>
+
+<p>Verify</p>
+</div>
+
+<pre><code>claude --version</code></pre>
+</div>
+
+<div>
+
+<div>
+
+<p>Open the project in VSCode and start Claude Code</p>
+</div>
+
+<pre><code>cd ~/ksept-lab
+code .     # open this folder in VSCode
+# In the VSCode integrated terminal:
+claude     # first run walks you through login</code></pre>
+</div>
+
+</div>
+
+<h2 id="slide-9">9. 7 · Anthropic API key <a class="anchor" href="#slide-9">#</a></h2>
+<div>
+
+<div>
+
+<p>Setup · 7 of 7</p>
+</div>
+
+<div>
+
+<p>Get an Anthropic API key</p>
+</div>
+
+</div>
+
+<p>This is what the chat app (and every example app in this course) uses to call Claude. Claude Code itself doesn't need it — it has its own login — so this step is for <em>your</em> apps.</p>
+<div>
+
+<div>
+
+<p>1 · Create the key</p>
+</div>
+
+<p>Go to <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">console.anthropic.com/settings/keys</a> → <strong>Create Key</strong>. Copy it now; you won't see it again.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>2 · Save it once, for the whole week</p>
+</div>
+
+<p>Put it in <strong>one shared <code>.env</code></strong> at the project root. Every example app you unzip in this course will walk up the tree and find it automatically.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>macOS</p>
+<p>Windows</p>
+</div>
+
+<pre><code>cd ~/ksept-lab
+echo &#39;ANTHROPIC_API_KEY=sk-ant-...your-key-here...&#39; &gt; .env
+cat .env       # verify: shows ANTHROPIC_API_KEY=sk-ant-...
+
+cd ~/ksept-lab
+&#39;ANTHROPIC_API_KEY=sk-ant-...your-key-here...&#39; | Out-File -Encoding ascii .env
+type .env      # verify: shows ANTHROPIC_API_KEY=sk-ant-...</code></pre>
+</div>
+
+<p>Keep this file out of git. The repos you'll unzip already <code>.gitignore</code> it, but since the <code>.env</code> lives at <code>~/ksept-lab/</code> (one level above each app), it's outside every project anyway.</p>
+
+    <hr>
+    <p class="sub">출처: <a href="https://ksetp.netlify.app/setup" target="_blank" rel="noopener">https://ksetp.netlify.app/setup</a> · ksept-lab 학습 아카이브</p>
+  </div>
+</div>
+</body>
+</html>

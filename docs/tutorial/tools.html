@@ -1,0 +1,1493 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tools &amp; Structure · ksept-lab 튜토리얼</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="side-title"><a href="../index.html">📒 ksept-lab</a></div>
+    <div class="side-group">📚 튜토리얼</div>
+    <nav><a href="index.html">개요</a><a href="setup.html">Setup</a><a href="foundations.html">Foundations</a><a href="tools.html" class="active">Tools &amp; Structure</a><a href="context.html">Context Management</a><a href="agents.html">Architecture &amp; Agents</a><a href="production.html">Production</a><a href="workshop.html">Workshop</a></nav>
+    <div class="side-foot">출처: ksetp.netlify.app<br>로컬 생성 후 커밋</div>
+  </aside>
+  <div class="wrap">
+    <h1>Tools &amp; Structure</h1>
+    <p class="sub">Module 3/7 · 슬라이드 27개 · <a href="https://ksetp.netlify.app/tools" target="_blank" rel="noopener">원본 슬라이드 ↗</a></p>
+    <p class="sub">함수/툴 호출, 구조화 출력, 스키마 검증, 파싱, MCP</p>
+    <details class="toc"><summary>이 모듈의 슬라이드 27개</summary><ol><li><a href="#slide-1">1. Tools &amp;amp; Structure</a></li><li><a href="#slide-2">2. Live demo</a></li><li><a href="#slide-3">3. What that app had to solve</a></li><li><a href="#slide-4">4. What you&#x27;ll learn</a></li><li><a href="#slide-5">5. SQL generator · Endpoint</a></li><li><a href="#slide-6">6. SQL generator · Caller</a></li><li><a href="#slide-7">7. Parseable output · Examples</a></li><li><a href="#slide-8">8. Level 2</a></li><li><a href="#slide-9">9. Structured Output</a></li><li><a href="#slide-10">10. Validate + retry</a></li><li><a href="#slide-11">11. 200 or 422</a></li><li><a href="#slide-12">12. Level 3</a></li><li><a href="#slide-13">13. The agent loop</a></li><li><a href="#slide-14">14. Codebase Q&amp;amp;A · Tools</a></li><li><a href="#slide-15">15. Codebase Q&amp;amp;A · In action</a></li><li><a href="#slide-16">16. When the model goes off-script</a></li><li><a href="#slide-17">17. Level 4 — MCP</a></li><li><a href="#slide-18">18. Before MCP</a></li><li><a href="#slide-19">19. The N×M problem</a></li><li><a href="#slide-20">20. MCP — Model Context Protocol</a></li><li><a href="#slide-21">21. A working server</a></li><li><a href="#slide-22">22. A working client</a></li><li><a href="#slide-23">23. Plug tools into an LLM</a></li><li><a href="#slide-24">24. Transport &amp;amp; discovery</a></li><li><a href="#slide-25">25. When MCP pays off</a></li><li><a href="#slide-26">26. Project</a></li><li><a href="#slide-27">27. Extract structured data</a></li></ol></details>
+<h2 id="slide-1">1. Tools &amp; Structure <a class="anchor" href="#slide-1">#</a></h2>
+<div>
+
+<p>Module 3 · Day Three</p>
+</div>
+
+<div>
+
+</div>
+
+<div>
+
+<p>Tools &amp; Structure</p>
+</div>
+
+<div>
+
+<p>Demo · Lecture · Project</p>
+</div>
+
+<p><img src="assets/tools-tool_use.png" alt="Illustration of LLM tool use" /></p>
+<h2 id="slide-2">2. Live demo <a class="anchor" href="#slide-2">#</a></h2>
+<div>
+
+<p>Tools &amp; Structure</p>
+</div>
+
+<div>
+
+</div>
+
+<div>
+
+<p>Live demo</p>
+</div>
+
+<div>
+
+<p>SQL Code Generation for DIY Analytics with Google BigQuery</p>
+</div>
+
+<h2 id="slide-3">3. What that app had to solve <a class="anchor" href="#slide-3">#</a></h2>
+<div>
+
+<div>
+
+<p>From the demo</p>
+</div>
+
+<div>
+
+<p>What that app had to solve</p>
+</div>
+
+<p>The demo showed natural-language questions becoming valid BigQuery SQL — single turn, no agent loop, structured output. Behind that one feature, a set of concrete challenges:</p>
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Structure</p>
+</div>
+
+<div>
+
+<p>Make the output a contract</p>
+</div>
+
+<p>The downstream pipeline expects raw SQL — not markdown, not prose. The model has to produce exactly the shape we ask for.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Context</p>
+</div>
+
+<div>
+
+<p>Assemble the prompt at runtime</p>
+</div>
+
+<p>The LLM AI call provides all of the necessary context: the available database schema and user request</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Prompting</p>
+</div>
+
+<div>
+
+<p>Encode the rules</p>
+</div>
+
+<p>A dozen hard-won rules sit in the system prompt — each one prevents a specific past failure. Production prompts grow.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Defense</p>
+</div>
+
+<div>
+
+<p>Error Handling</p>
+</div>
+
+<p>The model occasionally ignores the "no code fences" rule anyway. Post-processing strips wrappers as a belt-and-braces guarantee. Also check for dangerous SQL statements like DROP, ALTER, INSERT, etc.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Architecture</p>
+</div>
+
+<div>
+
+<p>Pick single-turn vs. multi-turn</p>
+</div>
+
+<p>This example only supports single turn, but wouldn't it be nice if users could ask for refinement...</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Cost</p>
+</div>
+
+<div>
+
+<p>Maximize Caching</p>
+</div>
+
+<p>Long static rule lists in the system prompt get repeated on every call. Anthropic's prompt cache makes repeat calls ~90% cheaper. Structure the prompt to have the most stable parts up front.</p>
+</div>
+
+</div>
+
+<p>This module</p>
+<h2 id="slide-4">4. What you'll learn <a class="anchor" href="#slide-4">#</a></h2>
+<div>
+
+<div>
+
+<p>Lecture</p>
+</div>
+
+<div>
+
+<p>What you'll learn in this module</p>
+</div>
+
+<p>Four levels of "shape" you can get out of an LLM</p>
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Level 1</p>
+</div>
+
+<div>
+
+<p>Parseable output</p>
+</div>
+
+<p>Parseable output (language, citations, formatting, etc). Almost all real use-cases have some post-processing that depends on LLM compliance with parsing requirements.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Example</p>
+</div>
+
+<div>
+
+<p>Code generation</p>
+</div>
+
+<p>"Write a Python function that…" → the model returns just the code, with rules in the system prompt and a defensive check on the way out. Another example "Embed citations in your response using [[n]] format" where context in includes source 1: ... source 2:...</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Level 2</p>
+</div>
+
+<div>
+
+<p>True structured output</p>
+</div>
+
+<p>Forced tool use with a JSON schema. Validate the result. Feed errors back so the model self-corrects.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Example</p>
+</div>
+
+<div>
+
+<p>Content extraction</p>
+</div>
+
+<p>Free-text "Hi I'm Sam at Acme, my email is sam@acme" → a validated {name, email, company} object the next system can rely on.</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Level 3</p>
+</div>
+
+<div>
+
+<p>Tool use</p>
+</div>
+
+<p>Model drives a loop, calling tools to gather info or take action. The agent loop at the heart of every agentic system.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Example</p>
+</div>
+
+<div>
+
+<p>Database Q&amp;A</p>
+</div>
+
+<p>"Which customers churned last quarter, and why?" → model calls <code>list_tables</code>, <code>get_schema</code>, then <code>run_query</code> — and answers in plain English with the numbers to back it up.</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Level 4</p>
+</div>
+
+<div>
+
+<p>MCP — Model Context Protocol</p>
+</div>
+
+<p>Tool provider publishes the tool-call schema and adapts to the API, instead of the solution developer doing that work.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Example</p>
+</div>
+
+<div>
+
+<p>The GitHub MCP server</p>
+</div>
+
+<p>GitHub publishes one MCP server — and Claude Desktop, Cursor, and your own agent can all search issues, read PRs, and open branches through it. GitHub wrote the integration once; no client ever re-wires it.</p>
+</div>
+
+</div>
+
+</div>
+
+<p>In all cases, the errors in the output can be fed back to the model for correction</p>
+<h2 id="slide-5">5. SQL generator · Endpoint <a class="anchor" href="#slide-5">#</a></h2>
+<div>
+
+<div>
+
+<p>Level 1 · Parseable output</p>
+</div>
+
+<div>
+
+<p>The SQL generator endpoint example</p>
+</div>
+
+<p>Example server endpoint to generate SQL given a database schema and a user question</p>
+</div>
+
+<div>
+
+<p>backend/app.py</p>
+</div>
+
+<pre><code>SYSTEM = &quot;&quot;&quot;You are a BigQuery SQL writer.
+Return ONLY the SQL — nothing else.
+- No markdown, no ```sql code fences
+- No commentary, no explanation
+- Lowercase keywords (select, from, where)
+- Always include a LIMIT clause
+- Quote reserved identifiers with backticks&quot;&quot;&quot;
+
+@app.route(&quot;/api/sql&quot;, methods=[&quot;POST&quot;])
+def generate_sql():
+    schema_dump = request.json[&quot;schema_dump&quot;]
+    question    = request.json[&quot;question&quot;]
+
+    resp = client.messages.create(
+        model=&quot;claude-sonnet-4-6&quot;,
+        max_tokens=800,
+        system=SYSTEM + f&quot;\n\nSCHEMA:\n{schema_dump}&quot;,
+        messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: question}],
+    )
+
+    raw = resp.content[0].text.strip()
+    # Defensive strip — model occasionally ignores the no-fence rule
+    if raw.startswith(&quot;```&quot;):
+        raw = raw.split(&quot;\n&quot;, 1)[1].rsplit(&quot;```&quot;, 1)[0].strip()
+    return {&quot;sql&quot;: raw}</code></pre>
+<h2 id="slide-6">6. SQL generator · Caller <a class="anchor" href="#slide-6">#</a></h2>
+<div>
+
+<div>
+
+<p>Level 1 · Parseable output</p>
+</div>
+
+<div>
+
+<p>The SQL generator frontend client</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Frontend caller — plain JS</p>
+</div>
+
+<pre><code>const schema_dump = `
+TABLE \`acme.sales.orders\` (
+  order_id     STRING,
+  customer_id  STRING,
+  order_date   DATE,
+  total_usd    NUMERIC,
+  status       STRING  -- pending | shipped | delivered | cancelled
+)`
+
+const question = &quot;How much did we sell in the last 7 days, by status?&quot;
+
+const res = await fetch(&#39;/api/sql&#39;, {
+  method: &#39;POST&#39;,
+  headers: { &#39;Content-Type&#39;: &#39;application/json&#39; },
+  body: JSON.stringify({ schema_dump, question }),
+})
+const { sql } = await res.json()
+console.log(sql)</code></pre>
+</div>
+
+<div>
+
+<div>
+
+<p>Expected output</p>
+</div>
+
+<pre><code>select status, sum(total_usd) as total_sales
+from `acme.sales.orders`
+where order_date &gt;= date_sub(current_date(), interval 7 day)
+group by status
+limit 100</code></pre>
+</div>
+
+</div>
+
+<p>One LLM call. One string out. The "structure" is whatever you trust the prompt + strip to produce. Cheap, fast, easy to reason about — but no machine-checkable guarantees. A typo in a column name, a missing <code>LIMIT</code>, or a stray <code>```</code> fence — your downstream code has to handle it.</p>
+<h2 id="slide-7">7. Parseable output · Examples <a class="anchor" href="#slide-7">#</a></h2>
+<div>
+
+<div>
+
+<p>Level 1 · Parseable output</p>
+</div>
+
+<div>
+
+<p>Parseable output — what it looks like</p>
+</div>
+
+<p>Even most free-form response use-cases have some post-processing requirements. The "format" is a sentence in the prompt; the enforcement is your parser.</p>
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Bare code, nothing else</p>
+</div>
+
+<div>
+
+<p>"Return ONLY the SQL — no prose, no ``` fences."</p>
+</div>
+
+<p>Pipe straight into an executor or editor buffer. SQL, regex, shell one-liners — the generator you just saw.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>One word from a fixed set</p>
+</div>
+
+<div>
+
+<p>"Reply with exactly one of: positive · negative · neutral"</p>
+</div>
+
+<p>Switch on the string. Classification, routing, moderation flags, triage.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Templated Markdown</p>
+</div>
+
+<div>
+
+<p>"Use exactly these headings: ## Summary · ## Risks · ## Next steps"</p>
+</div>
+
+<p>Render directly into a doc or UI. Reports, release notes, PR descriptions.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Delimited lines</p>
+</div>
+
+<div>
+
+<p>"One finding per line: severity | file | description"</p>
+</div>
+
+<p>Split into records. Bulk extraction, CSV import, lint-style review output.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Inline citations</p>
+</div>
+
+<div>
+
+<p>"After every claim, cite the source as [path:line]."</p>
+</div>
+
+<p>Regex the references out and link them. Grounded Q&amp;A over docs or a codebase.</p>
+</div>
+
+<div>
+
+<div>
+
+<p>Tagged final answer</p>
+</div>
+
+<div>
+
+<p>"Think it through, then put the final answer inside &lt;answer&gt;…&lt;/answer&gt;."</p>
+</div>
+
+<p>Regex out the tag, discard the reasoning. The model thinks freely without it leaking into your UI.</p>
+</div>
+
+</div>
+
+<p>Don't forget to check for compliance and pass descriptive errors back into the model to try again (max retries before failure)</p>
+<h2 id="slide-8">8. Level 2 <a class="anchor" href="#slide-8">#</a></h2>
+<div>
+
+<p>Tools &amp; Structure</p>
+</div>
+
+<div>
+
+</div>
+
+<div>
+
+<p>Level 2 — True structured output</p>
+</div>
+
+<div>
+
+<p>Forced tool use, schema-validated, self-correcting on errors</p>
+</div>
+
+<h2 id="slide-9">9. Structured Output <a class="anchor" href="#slide-9">#</a></h2>
+<div>
+
+<div>
+
+<p>LEVEL 2 · STRUCTURED OUTPUT</p>
+</div>
+
+<div>
+
+<p>Force the LLM reponse to Comply with a JSON Schema</p>
+</div>
+
+<p>You define a schema, force the model to populate it, and parse the resulting instance. Feed JSON validation errors back to the model</p>
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Backend — schema + endpoint</p>
+</div>
+
+<pre><code>EXTRACT_PERSON = {
+    &quot;name&quot;: &quot;record_person&quot;,
+    &quot;description&quot;: &quot;Record the person mentioned in the input.&quot;,
+    &quot;input_schema&quot;: {
+        &quot;type&quot;: &quot;object&quot;,
+        &quot;properties&quot;: {
+            &quot;name&quot;:    {&quot;type&quot;: &quot;string&quot;},
+            &quot;email&quot;:   {&quot;type&quot;: &quot;string&quot;, &quot;format&quot;: &quot;email&quot;},
+            &quot;company&quot;: {&quot;type&quot;: &quot;string&quot;},
+        },
+        &quot;required&quot;: [&quot;name&quot;, &quot;email&quot;],
+    },
+}
+
+@app.route(&quot;/api/extract-person&quot;, methods=[&quot;POST&quot;])
+def extract_person():
+    text = request.json[&quot;text&quot;]
+
+    resp = client.messages.create(
+        model=&quot;claude-sonnet-4-6&quot;,
+        max_tokens=512,
+        system=&quot;Extract the person&#39;s name, email, &quot;
+               &quot;and company (if mentioned).&quot;,
+        messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: text}],
+        tools=[EXTRACT_PERSON],
+        tool_choice={&quot;type&quot;: &quot;tool&quot;,
+                     &quot;name&quot;: &quot;record_person&quot;},   # FORCE
+    )
+    block = next(b for b in resp.content if b.type == &quot;tool_use&quot;)
+    return {&quot;person&quot;: block.input}</code></pre>
+</div>
+
+<div>
+
+<div>
+
+<p>Frontend caller — plain JS</p>
+</div>
+
+<pre><code>const text = &quot;Hi, I&#39;m Sam at Acme — sam@acme.com.&quot;
+
+const res = await fetch(&#39;/api/extract-person&#39;, {
+  method: &#39;POST&#39;,
+  headers: { &#39;Content-Type&#39;: &#39;application/json&#39; },
+  body: JSON.stringify({ text }),
+})
+const { person } = await res.json()
+console.log(person)</code></pre>
+<div>
+
+<p>Result — a populated instance</p>
+</div>
+
+<pre><code>{
+  &quot;name&quot;: &quot;Sam&quot;,
+  &quot;email&quot;: &quot;sam@acme.com&quot;,
+  &quot;company&quot;: &quot;Acme&quot;
+}</code></pre>
+<p>tool_choice : "auto" lets the model decide; forcing it guarantees the tool call. Schema is the contract; instance is one execution of that contract.</p>
+</div>
+
+</div>
+
+<h2 id="slide-10">10. Validate + retry <a class="anchor" href="#slide-10">#</a></h2>
+<div>
+
+<div>
+
+<p>Level 2 · Lecture</p>
+</div>
+
+<div>
+
+<p>Validate, then feed errors back</p>
+</div>
+
+<p>JSON-schema only catches gross shape issues. Semantic validation (real email, non-empty, business rules) belongs in Pydantic. When validation fails, the endpoint sends the error back to the model as tool_result message appeneded to the prior messages (all context preserved) and retries; after MAX_ATTEMPTS, it gives up with an HTTP error.</p>
+</div>
+
+<div>
+
+<pre><code>from pydantic import BaseModel, EmailStr, \
+     ValidationError, Field
+
+MAX_ATTEMPTS = 3
+
+class Person(BaseModel):
+    name: str = Field(min_length=1)
+    email: EmailStr
+    company: str | None = None
+
+@app.route(&quot;/api/extract-person&quot;, methods=[&quot;POST&quot;])
+def extract_person():
+    text = request.json[&quot;text&quot;]
+    messages = [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: text}]
+
+    for attempt in range(MAX_ATTEMPTS):
+        resp = client.messages.create(
+            model=&quot;claude-sonnet-4-6&quot;,
+            max_tokens=512,
+            system=&quot;Extract the person&#39;s name, &quot;
+                   &quot;email, and company.&quot;,
+            messages=messages,
+            tools=[EXTRACT_PERSON],
+            tool_choice={&quot;type&quot;: &quot;tool&quot;,
+                         &quot;name&quot;: &quot;record_person&quot;},
+        )
+        block = next(b for b in resp.content
+                     if b.type == &quot;tool_use&quot;)
+
+        try:
+            person = Person(**block.input)
+            return {&quot;person&quot;: person.model_dump()}  # 200
+        except ValidationError as e:
+            # Show the model exactly what went wrong
+            messages.append({&quot;role&quot;: &quot;assistant&quot;,
+                             &quot;content&quot;: resp.content})
+            messages.append({&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: [{
+                &quot;type&quot;: &quot;tool_result&quot;,
+                &quot;tool_use_id&quot;: block.id,
+                &quot;is_error&quot;: True,
+                &quot;content&quot;: (
+                    f&quot;Validation failed:\n{e}\n\n&quot;
+                    &quot;Re-call record_person with &quot;
+                    &quot;corrected fields.&quot;
+                ),
+            }]})
+
+    # All attempts exhausted — structured 422
+    return jsonify({
+        &quot;error&quot;: &quot;extraction_failed&quot;,
+        &quot;message&quot;: (
+            f&quot;Could not extract a valid person &quot;
+            f&quot;after {MAX_ATTEMPTS} attempts.&quot;
+        ),
+        &quot;last_validation_error&quot;: str(e),
+    }), 422</code></pre>
+</div>
+
+<p>The endpoint's contract: <strong>200 with a validated person, or 422 with a structured error</strong>. Callers never see a malformed person. The retry budget caps cost at <code>MAX_ATTEMPTS</code> LLM calls per request.</p>
+<h2 id="slide-11">11. 200 or 422 <a class="anchor" href="#slide-11">#</a></h2>
+<div>
+
+<div>
+
+<p>LEVEL 2 · TOOL USE</p>
+</div>
+
+<div>
+
+<p>What the caller sees — 200 or 422, never garbage</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Success — <code>200 OK</code></p>
+</div>
+
+<pre><code>{
+  &quot;person&quot;: {
+    &quot;name&quot;: &quot;Sam&quot;,
+    &quot;email&quot;: &quot;sam@acme.com&quot;,
+    &quot;company&quot;: &quot;Acme&quot;
+  }
+}</code></pre>
+</div>
+
+<div>
+
+<div>
+
+<p>Failure — <code>422 Unprocessable Entity</code></p>
+</div>
+
+<pre><code>{
+  &quot;error&quot;: &quot;extraction_failed&quot;,
+  &quot;message&quot;: &quot;Could not extract a valid person
+              after 3 attempts.&quot;,
+  &quot;last_validation_error&quot;: &quot;1 validation error
+      for Person\nemail\n  value is not a valid
+      email address [type=value_error]&quot;
+}</code></pre>
+</div>
+
+</div>
+
+<p>In practice the second attempt almost always succeeds — the <code>is_error: true</code> <code>tool_result</code> is a clear "here's what went wrong, try again" signal the model treats as a correction, not a generic failure.</p>
+<h2 id="slide-12">12. Level 3 <a class="anchor" href="#slide-12">#</a></h2>
+<div>
+
+<p>Tools &amp; Structure</p>
+</div>
+
+<div>
+
+</div>
+
+<div>
+
+<p>Level 3 — Active Tool use</p>
+</div>
+
+<div>
+
+<p>The model drives a loop — calling tools, reading results, deciding what's next</p>
+</div>
+
+<h2 id="slide-13">13. The agent loop <a class="anchor" href="#slide-13">#</a></h2>
+<div>
+
+<div>
+
+<p>Level 3 · Lecture</p>
+</div>
+
+<div>
+
+<p>The agent loop</p>
+</div>
+
+<p>When the model needs to <em>act</em> — look up data, call an API, search files — you give it tools and let it drive.</p>
+</div>
+
+<pre><code>def agent(messages, tools):
+    while True:
+        resp = client.messages.create(
+            model=&quot;claude-sonnet-4-6&quot;,
+            max_tokens=2048,
+            system=&quot;...&quot;,
+            messages=messages,
+            tools=tools, 
+        )
+        messages.append({&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: resp.content})
+
+        if resp.stop_reason == &quot;end_turn&quot;:
+            return resp
+
+        # Run every tool the model asked for, feed the results back
+        results = []
+        for block in resp.content:
+            if block.type == &quot;tool_use&quot;:
+                out = run_tool(block.name, block.input)
+                results.append({
+                    &quot;type&quot;: &quot;tool_result&quot;,
+                    &quot;tool_use_id&quot;: block.id,
+                    &quot;content&quot;: out,
+                })
+        messages.append({&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: results})</code></pre>
+<p>Each iteration: model proposes tool calls → you run them → results go back as a tool_result message → loop. Terminate when stop_reason == "end_turn". This same ~20-line loop is the engine inside Claude Code, Cursor, every agent framework. Model decides when it is done (can meet the users request or hits a dead end)</p>
+<h2 id="slide-14">14. Codebase Q&amp;A · Tools <a class="anchor" href="#slide-14">#</a></h2>
+<div>
+
+<div>
+
+<p>Level 3 · Real example</p>
+</div>
+
+<div>
+
+<p>A codebase Q&amp;A agent — the tools</p>
+</div>
+
+<p>Give the model three read-only tools over a project directory and ask it questions. This is a smaller cousin of what Claude Code itself does.</p>
+</div>
+
+<div>
+
+<pre><code>TOOLS = [
+    {
+        &quot;name&quot;: &quot;list_files&quot;,
+        &quot;description&quot;: &quot;List files in the project &quot;
+            &quot;matching a glob (e.g. &#39;**/*.py&#39;).&quot;,
+        &quot;input_schema&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;properties&quot;: {&quot;pattern&quot;: {&quot;type&quot;: &quot;string&quot;}},
+            &quot;required&quot;: [&quot;pattern&quot;],
+        },
+    },
+    {
+        &quot;name&quot;: &quot;grep&quot;,
+        &quot;description&quot;: &quot;Search file contents for a regex. &quot;
+            &quot;Returns matching lines with file:line prefixes.&quot;,
+        &quot;input_schema&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;properties&quot;: {
+                &quot;pattern&quot;: {&quot;type&quot;: &quot;string&quot;},
+                &quot;path&quot;:    {&quot;type&quot;: &quot;string&quot;,
+                            &quot;description&quot;: &quot;Dir to search.&quot;},
+            },
+            &quot;required&quot;: [&quot;pattern&quot;],
+        },
+    },</code></pre>
+<div>
+
+<pre><code>    {
+        &quot;name&quot;: &quot;read_file&quot;,
+        &quot;description&quot;: &quot;Read a file&#39;s contents. &quot;
+            &quot;Optionally a line range.&quot;,
+        &quot;input_schema&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;properties&quot;: {
+                &quot;path&quot;:  {&quot;type&quot;: &quot;string&quot;},
+                &quot;start&quot;: {&quot;type&quot;: &quot;integer&quot;},
+                &quot;end&quot;:   {&quot;type&quot;: &quot;integer&quot;},
+            },
+            &quot;required&quot;: [&quot;path&quot;],
+        },
+    },
+]
+
+SYSTEM = &quot;&quot;&quot;You are a codebase Q&amp;A assistant.
+
+Use the tools to find evidence before answering.
+Always cite file paths and line numbers. If you
+don&#39;t find the answer in the code, say so plainly.&quot;&quot;&quot;</code></pre>
+<p>Three small tools cover most read-only questions about a codebase. The model decides the sequence: grep for a symbol, list files in a dir, read what looks promising. You never hardcode the order.</p>
+</div>
+
+</div>
+
+<h2 id="slide-15">15. Codebase Q&amp;A · In action <a class="anchor" href="#slide-15">#</a></h2>
+<div>
+
+<div>
+
+<p>Level 3 · Real example</p>
+</div>
+
+<div>
+
+<p>The loop in action</p>
+</div>
+
+<p>User asks: <em>"Where does the chat endpoint forward requests to, and what model does it call?"</em></p>
+</div>
+
+<pre><code>turn 1  →  model:  tool_use grep(pattern=&quot;/api/chat&quot;, path=&quot;.&quot;)
+        ←  tool:   backend/app.py:18: @app.route(&quot;/api/chat&quot;, methods=[&quot;POST&quot;])
+                   frontend/src/App.jsx:14:    const res = await fetch(&#39;/api/chat&#39;, {
+
+turn 2  →  model:  tool_use read_file(path=&quot;backend/app.py&quot;, start=1, end=40)
+        ←  tool:   from anthropic import Anthropic
+                   ...
+                   @app.route(&quot;/api/chat&quot;, methods=[&quot;POST&quot;])
+                   def chat():
+                       user_message = request.json[&quot;message&quot;]
+                       resp = client.messages.create(
+                           model=&quot;claude-sonnet-4-6&quot;,
+                           ...
+                       )
+                       return jsonify({&quot;reply&quot;: resp.content[0].text})
+
+turn 3  →  model:  end_turn
+
+  ASSISTANT FINAL ANSWER
+  ─────────────────────────────────────────────────────────────────
+  The chat endpoint is defined in `backend/app.py:18`. It forwards the
+  user&#39;s message to Anthropic&#39;s API via `client.messages.create(...)` on
+  line 22, using model `claude-sonnet-4-6`. The reply is returned as
+  JSON under the `reply` key.</code></pre>
+<p>Three turns, two tool calls, one citation-grounded answer. The model chose to <code>grep</code> first to locate the route, then <code>read_file</code> for context. Swap the tools for <code>get_order</code> / <code>refund</code> / <code>send_email</code> and you have a support agent. The <em>shape</em> is the same.</p>
+<h2 id="slide-16">16. When the model goes off-script <a class="anchor" href="#slide-16">#</a></h2>
+<div>
+
+<div>
+
+<p>Lecture</p>
+</div>
+
+<div>
+
+<p>When the model goes off-script</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>How it breaks</p>
+</div>
+
+<ul>
+<li>Wraps the answer in <code>```sql ... ```</code> even when told not to</li>
+<li>Adds prose before/after the structured part</li>
+<li>Omits a required field</li>
+<li>Hallucinates a tool name not in your registry</li>
+<li>Refuses, but stops with <code>end_turn</code> instead of a refusal flag</li>
+<li><code>max_tokens</code> truncation cuts the JSON mid-string</li>
+</ul>
+</div>
+
+<div>
+
+<div>
+
+<p>How you defend</p>
+</div>
+
+<ul>
+<li>Validate output (Pydantic / Zod) — reject on schema mismatch</li>
+<li>Strip wrappers post hoc — fences, quotes, trailing punctuation</li>
+<li>Inspect <code>stop_reason</code> — was it <code>max_tokens</code>? a refusal?</li>
+<li>Retry once with the validation error appended to the prompt</li>
+<li>Dispatch tools on a known list; raise on unknown names</li>
+<li>Set <code>max_tokens</code> generously; check usage afterward</li>
+</ul>
+</div>
+
+</div>
+
+<p>Trust but verify. Every production prompt has guardrails on both sides — what you send <em>and</em> what comes back.</p>
+<h2 id="slide-17">17. Level 4 — MCP <a class="anchor" href="#slide-17">#</a></h2>
+<div>
+
+<p>Tools &amp; Structure</p>
+</div>
+
+<div>
+
+</div>
+
+<div>
+
+<p>Level 4 — MCP</p>
+</div>
+
+<div>
+
+<p>Best when many users are likely to access the same tool. For example Github is a big public service with many users</p>
+</div>
+
+<h2 id="slide-18">18. Before MCP <a class="anchor" href="#slide-18">#</a></h2>
+<div>
+
+<div>
+
+<p>Level 4 · Lecture</p>
+</div>
+
+<div>
+
+<p>Before MCP — every integration is hand-wired</p>
+</div>
+
+<p>To let your LLM call an external API today (without MCP), you write all of this yourself:</p>
+</div>
+
+<pre><code># 1. Hand-write the schema
+GITHUB_LIST_ISSUES = {
+    &quot;name&quot;: &quot;github_list_issues&quot;,
+    &quot;description&quot;: &quot;List issues for a repo.&quot;,
+    &quot;input_schema&quot;: {
+        &quot;type&quot;: &quot;object&quot;,
+        &quot;properties&quot;: {
+            &quot;owner&quot;: {&quot;type&quot;: &quot;string&quot;},
+            &quot;repo&quot;:  {&quot;type&quot;: &quot;string&quot;},
+            &quot;state&quot;: {&quot;type&quot;: &quot;string&quot;, &quot;enum&quot;: [&quot;open&quot;, &quot;closed&quot;, &quot;all&quot;]},
+        },
+        &quot;required&quot;: [&quot;owner&quot;, &quot;repo&quot;],
+    },
+}
+
+# 2. Hand-write the glue — auth, request, response shaping
+def github_list_issues(owner, repo, state=&quot;open&quot;):
+    r = requests.get(
+        f&quot;https://api.github.com/repos/{owner}/{repo}/issues&quot;,
+        headers={&quot;Authorization&quot;: f&quot;Bearer {os.environ[&#39;GH_TOKEN&#39;]}&quot;},
+        params={&quot;state&quot;: state},
+    )
+    r.raise_for_status()
+    return [{&quot;number&quot;: i[&quot;number&quot;], &quot;title&quot;: i[&quot;title&quot;]} for i in r.json()]</code></pre>
+<div>
+
+<div>
+
+<p>· Per API: schema + glue + auth + response shaping — written by you</p>
+</div>
+
+<div>
+
+<p>· Per <strong>client</strong> (Claude Desktop, Cursor, your agent): re-wired again</p>
+</div>
+
+<div>
+
+<p>· API adds or updates an endpoint → you update tool schemas by hand</p>
+</div>
+
+<div>
+
+<p>· Switch LLM providers → redo the wiring against the new tool-calling shape</p>
+</div>
+
+</div>
+
+<p>This works. It doesn't scale. <strong>N apps × M APIs = N × M hand-rolled implementations.</strong></p>
+<h2 id="slide-19">19. The N×M problem <a class="anchor" href="#slide-19">#</a></h2>
+<div>
+
+<div>
+
+<p>Level 4 · Lecture</p>
+</div>
+
+<div>
+
+<p>The N × M problem</p>
+</div>
+
+<p>Every client that wants to use every tool reimplements the integration. Nothing is reusable across clients or across LLM vendors.</p>
+</div>
+
+<p><img src="assets/tools-mcp_concept.png" alt="Without MCP, every client wires its own integration to every API (N × M); with MCP, each client speaks one protocol to shared servers (N + M)." /></p>
+<div>
+
+<div>
+
+<p><strong>The provider publishes the schema.</strong> The service author ships the tool-call schema with their MCP server — you no longer hand-write or maintain it.</p>
+</div>
+
+<div>
+
+<p><strong>The provider does the translation.</strong> Their server turns each JSON-schema-compliant tool call into the actual API request and shapes the response back.</p>
+</div>
+
+</div>
+
+<p>The hand-rolled approach grows as a product (N × M). MCP collapses it into a sum (N + M) — because the work moves to the side that owns the API.</p>
+<h2 id="slide-20">20. MCP — Model Context Protocol <a class="anchor" href="#slide-20">#</a></h2>
+<div>
+
+<div>
+
+<p>Level 4 · Lecture</p>
+</div>
+
+<div>
+
+<p>MCP — Model Context Protocol</p>
+</div>
+
+<p>An open standard for the wire between LLM <strong>clients</strong> (Claude Desktop, your IDE, an agent framework) and <strong>servers</strong> that expose capabilities. Introduced by Anthropic in late 2024; by 2026 supported by Claude, GPT (Responses API), Gemini, Cursor, VS Code Copilot, Zed.</p>
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>What changes</p>
+</div>
+
+<ul>
+<li><strong>Write once, reuse everywhere.</strong> The vendor (or the community) writes the GitHub MCP server. Every MCP client can use it.</li>
+<li><strong>Discovery is built in.</strong> The client asks the server "what do you have?" and gets schemas back dynamically. No hand-maintained tool registry.</li>
+<li><strong>Transport, auth, lifecycle are specified.</strong> stdio vs HTTP/SSE, capability negotiation, OAuth, streaming, cancellation — all standardized.</li>
+<li><strong>Separation of concerns.</strong> Server author knows the API. Client author knows the model. Neither has to know the other's domain.</li>
+</ul>
+</div>
+
+<div>
+
+<div>
+
+<p>Three primitives a server can expose</p>
+</div>
+
+<ul>
+<li><strong>Tools</strong> — actions the model invokes (your hand-rolled approach covers only this)</li>
+<li><strong>Resources</strong> — read-only data the client can attach as context (files, DB rows, API responses)</li>
+<li><strong>Prompts</strong> — reusable prompt templates the user can invoke</li>
+</ul>
+</div>
+
+</div>
+
+<p>Think of it as <strong>HTTP for LLM tools</strong>. The protocol doesn't tell you which servers exist — but once you point a client at one, everything else is standardized.</p>
+<h2 id="slide-21">21. A working server <a class="anchor" href="#slide-21">#</a></h2>
+<div>
+
+<div>
+
+<p>Level 4 · Lecture</p>
+</div>
+
+<div>
+
+<p>A working server — 15 lines of Python</p>
+</div>
+
+</div>
+
+<pre><code># pip install mcp
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP(&quot;demo-server&quot;)
+
+@mcp.tool()
+def add(a: int, b: int) -&gt; int:
+    &quot;&quot;&quot;Add two numbers together.&quot;&quot;&quot;
+    return a + b
+
+@mcp.tool()
+def greet(name: str) -&gt; str:
+    &quot;&quot;&quot;Return a friendly greeting.&quot;&quot;&quot;
+    return f&quot;Hello, {name}!&quot;
+
+@mcp.resource(&quot;config://app&quot;)
+def get_config() -&gt; str:
+    &quot;&quot;&quot;Expose some static config as a readable resource.&quot;&quot;&quot;
+    return &quot;app_name=demo\nversion=0.1&quot;
+
+if __name__ == &quot;__main__&quot;:
+    mcp.run()    # defaults to stdio transport</code></pre>
+<p>The <code>@mcp.tool()</code> decorator generates the schema from type hints and the description from the docstring. <code>@mcp.resource(uri)</code> exposes read-only data. Compare to the hand-rolled GitHub example — that was <em>one</em> tool. This is two tools plus a resource, with no schema written by hand.</p>
+<h2 id="slide-22">22. A working client <a class="anchor" href="#slide-22">#</a></h2>
+<div>
+
+<div>
+
+<p>Level 4 · Lecture</p>
+</div>
+
+<div>
+
+<p>A working client — discovery in action</p>
+</div>
+
+</div>
+
+<pre><code>import asyncio
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+async def main():
+    # Tell the client how to launch the server process
+    params = StdioServerParameters(command=&quot;python&quot;, args=[&quot;server.py&quot;])
+
+    async with stdio_client(params) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+
+            # DISCOVERY — the schemas come from the server, not from your code
+            tools = await session.list_tools()
+            print(&quot;Tools:&quot;, [t.name for t in tools.tools])
+            #   → Tools: [&#39;add&#39;, &#39;greet&#39;]
+
+            resources = await session.list_resources()
+            print(&quot;Resources:&quot;, [r.uri for r in resources.resources])
+            #   → Resources: [&#39;config://app&#39;]
+
+            # INVOCATION
+            result = await session.call_tool(&quot;add&quot;, {&quot;a&quot;: 2, &quot;b&quot;: 3})
+            print(&quot;add(2,3) =&quot;, result.content[0].text)        # → 5
+
+            cfg = await session.read_resource(&quot;config://app&quot;)
+            print(cfg.contents[0].text)                        # → app_name=demo
+
+asyncio.run(main())</code></pre>
+<p>The client never hardcodes the tool list. If the server author adds a new tool tomorrow, this same client picks it up on the next <code>list_tools()</code> call. <strong>That</strong> is the win — the integration is no longer something you maintain.</p>
+<h2 id="slide-23">23. Plug tools into an LLM <a class="anchor" href="#slide-23">#</a></h2>
+<div>
+
+<div>
+
+<p>Level 4 · Lecture</p>
+</div>
+
+<div>
+
+<p>Plug the discovered tools into an LLM</p>
+</div>
+
+<p>The client above just listed and called tools — no model involved. Real usage pipes the discovered schemas into the LLM's tool-use API and routes the model's calls back through the session.</p>
+</div>
+
+<pre><code>async with ClientSession(read, write) as session:
+    await session.initialize()
+    discovered = await session.list_tools()
+
+    # Translate MCP tool schemas → Anthropic tool-use format
+    anthropic_tools = [
+        {&quot;name&quot;: t.name, &quot;description&quot;: t.description, &quot;input_schema&quot;: t.inputSchema}
+        for t in discovered.tools
+    ]
+
+    resp = client.messages.create(
+        model=&quot;claude-sonnet-4-6&quot;,
+        max_tokens=1024,
+        tools=anthropic_tools,                         # ← discovered, not hardcoded
+        messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;What&#39;s 17 + 25?&quot;}],
+    )
+
+    for block in resp.content:
+        if block.type == &quot;tool_use&quot;:
+            out = await session.call_tool(block.name, block.input)   # ← MCP handles it
+            # …feed the result back into the next messages.create call</code></pre>
+<p>MCP handles discovery and invocation. The LLM layer handles reasoning about when to call what. Same agent loop you saw earlier — the tool registry is just sourced over MCP instead of hand-coded.</p>
+<h2 id="slide-24">24. Transport &amp; discovery <a class="anchor" href="#slide-24">#</a></h2>
+<div>
+
+<div>
+
+<p>Level 4 · Lecture</p>
+</div>
+
+<div>
+
+<p>Transport &amp; discovery — "how does the client find the server?"</p>
+</div>
+
+<p>There's <strong>no special MCP discovery layer.</strong> You point the client at a URL or a local command, the same way you'd point an HTTP client at any API.</p>
+</div>
+
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Transport</th>
+<th>Where the server runs</th>
+<th>How the client reaches it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>stdio</strong></td>
+<td>Local subprocess</td>
+<td>Client launches it (<code>python server.py</code>, <code>npx some-mcp-server</code>) and talks over stdin/stdout. No network, no DNS.</td>
+</tr>
+<tr>
+<td><strong>Streamable HTTP</strong><br />
+<span>(formerly HTTP + SSE)</span></td>
+<td>A normal web server</td>
+<td>Plain URL like <code>https://mcp.example.com/sse</code>. DNS resolves it. TLS works the usual way. Auth is typically OAuth 2.</td>
+</tr>
+</tbody>
+</table>
+
+<div>
+
+<p>Wire a server into Claude Desktop (or Claude Code) with one config entry:</p>
+<pre><code>{
+  &quot;mcpServers&quot;: {
+    &quot;demo&quot;: { &quot;command&quot;: &quot;python&quot;, &quot;args&quot;: [&quot;/path/to/server.py&quot;] }
+  }
+}</code></pre>
+</div>
+
+<p>External directories (Anthropic's catalog, Smithery, community lists) tell you <em>which</em> servers exist — but that's a layer on top of the protocol, not in it. Like REST: HTTP doesn't tell you which APIs exist; you find them through docs.</p>
+<h2 id="slide-25">25. When MCP pays off <a class="anchor" href="#slide-25">#</a></h2>
+<div>
+
+<div>
+
+<p>Level 4 · Lecture</p>
+</div>
+
+<div>
+
+<p>When MCP pays off — and when it doesn't</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<div>
+
+<p>Reach for MCP when</p>
+</div>
+
+<ul>
+<li>You want to <strong>consume</strong> servers others have built (GitHub, Postgres, Linear, your DB)</li>
+<li>You're integrating <strong>multiple APIs</strong> in one agent</li>
+<li>The same tool needs to work across <strong>multiple clients</strong> (your CLI + Claude Desktop + Cursor)</li>
+<li>You're a vendor exposing your API to <strong>any</strong> LLM, not just one</li>
+<li>You need resources or prompt templates, not just tool calls</li>
+</ul>
+</div>
+
+<div>
+
+<div>
+
+<p>Hand-roll when</p>
+</div>
+
+<ul>
+<li><strong>One</strong> tool, <strong>one</strong> app, <strong>one</strong> LLM provider</li>
+<li>The tool is deeply coupled to the app's internals (not a candidate for reuse)</li>
+<li>You need behavior the protocol doesn't yet expose (rare and shrinking)</li>
+</ul>
+<p>For a single integration, MCP is overkill — your hand-rolled tool is simpler. The payoff is in the second, third, and fourth integration that you <em>don't</em> have to write.</p>
+</div>
+
+</div>
+
+<div>
+
+<div>
+
+<p>[Image Prompt]</p>
+</div>
+
+<p>A simple two-axis chart. X-axis: "Number of integrations / clients you support" (1 → many). Y-axis: "Lines of integration code you maintain." Two lines: a steeply rising orange line labeled "Hand-rolled (N × M)" and a gently rising blue line labeled "MCP (N + M)". The two lines cross around the 2–3 integration mark; past that, the gap widens dramatically.</p>
+</div>
+
+<h2 id="slide-26">26. Project <a class="anchor" href="#slide-26">#</a></h2>
+<div>
+
+<p>Tools &amp; Structure</p>
+</div>
+
+<div>
+
+</div>
+
+<div>
+
+<p>Project</p>
+</div>
+
+<h2 id="slide-27">27. Extract structured data <a class="anchor" href="#slide-27">#</a></h2>
+<div>
+
+<div>
+
+<p>Project</p>
+</div>
+
+<div>
+
+<p>Extract structured data from unstructured text</p>
+</div>
+
+<p>You'll receive a starter app and a folder of unstructured documents (job postings, emails, recipes, meeting notes). Build a single-turn extractor that produces a validated structured object from each one.</p>
+</div>
+
+<p><a href="https://ksetp.netlify.app/assets/tools/extract-starter.zip" download=""><span>↓</span> Starter project <span>extract-starter.zip</span></a></p>
+<div>
+
+<div>
+
+<div>
+
+<p>What's in the zip</p>
+</div>
+
+<ul>
+<li><code>extract.py</code> — runnable starter with stubs for schema, prompt, validation</li>
+<li><code>documents/</code> — sample unstructured texts</li>
+<li><code>requirements.txt</code></li>
+<li><code>README.md</code></li>
+</ul>
+</div>
+
+<div>
+
+<div>
+
+<p>Your job</p>
+</div>
+
+<ol type="1">
+<li>Pick one document type. Define the <code>input_schema</code>.</li>
+<li>Write a system prompt with at least one explicit rule.</li>
+<li>Use <code>tool_choice</code> to force structured output.</li>
+<li>Validate with Pydantic; reject on schema mismatch.</li>
+<li>Handle at least one failure mode (refusal, missing field, malformed).</li>
+<li>Run against every sample, print successes + failures.</li>
+</ol>
+</div>
+
+</div>
+
+<p><strong>Alternative welcome.</strong> Propose your own structured-extraction use case if it's more interesting to you. <strong>Present:</strong> your schema, your system prompt, one case that works, one that broke, and what you did about it.</p>
+
+    <hr>
+    <p class="sub">출처: <a href="https://ksetp.netlify.app/tools" target="_blank" rel="noopener">https://ksetp.netlify.app/tools</a> · ksept-lab 학습 아카이브</p>
+  </div>
+</div>
+</body>
+</html>

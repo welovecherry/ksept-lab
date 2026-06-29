@@ -169,6 +169,8 @@ PAGE_TEMPLATE = r"""<!doctype html>
       padding: 1.5rem 1rem;
     }}
     .side-title {{ font-weight: 700; margin-bottom: 1rem; font-size: 1.05rem; }}
+    .side-group {{ color: var(--muted); font-size: .75rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .08em; margin: 1.2rem 0 .4rem; }}
     .sidebar nav {{ display: flex; flex-direction: column; gap: .1rem; }}
     .sidebar nav a {{ color: var(--fg); text-decoration: none; padding: .4rem .6rem;
       border-radius: 6px; font-size: .92rem; }}
@@ -231,13 +233,25 @@ PAGE_TEMPLATE = r"""<!doctype html>
   <div class="layout">
   <aside class="sidebar">
     <div class="side-title">📒 ksept-lab</div>
+    <div class="side-group">작업일지</div>
     <nav>
       <a href="#how">작동 방식</a>
       <a href="#cors">CORS</a>
       <a href="#venv">가상환경(venv)</a>
       <a href="#deploy">배포 흐름</a>
       <a href="#auto">자동 갱신</a>
-      <a href="#log">작업일지</a>
+      <a href="#log">git log</a>
+    </nav>
+    <div class="side-group">📚 튜토리얼</div>
+    <nav>
+      <a href="tutorial/index.html">개요</a>
+      <a href="tutorial/setup.html">Setup</a>
+      <a href="tutorial/foundations.html">Foundations</a>
+      <a href="tutorial/tools.html">Tools &amp; Structure</a>
+      <a href="tutorial/context.html">Context Management</a>
+      <a href="tutorial/agents.html">Architecture &amp; Agents</a>
+      <a href="tutorial/production.html">Production</a>
+      <a href="tutorial/workshop.html">Workshop</a>
     </nav>
     <div class="side-foot">매일 쌓이는 학습 로그<br>welovecherry/ksept-lab</div>
   </aside>
