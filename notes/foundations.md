@@ -63,6 +63,37 @@
 ### 한 줄 요약
 LLM = **토큰 단위로 다음을 예측하는 거대한 확률 엔진**. 컨텍스트가 예측을 좌우하고, 기억엔 한계(윈도우)가 있으며, 답은 확률적이다.
 
+## 13. 첫 API 호출 — 코드 해부
+
+비유: Claude에게 **전화 한 통 거는 것**. 수화기 들기 → 질문하기 → 답 받기.
+
+```python
+from anthropic import Anthropic
+client = Anthropic()                 # .env의 ANTHROPIC_API_KEY를 자동으로 읽음
+resp = client.messages.create(
+    model="claude-sonnet-4-6",
+    max_tokens=256,
+    system="You are a tax advisor...",   # Claude의 역할/규칙
+    messages=[
+        {"role": "user", "content": "..."},   # 내 질문
+    ],
+)
+print(resp.content[0].text)           # 답 꺼내기
+```
+
+### 한 줄씩
+- `Anthropic()` = 수화기 들기. **API 키는 코드에 안 박고 .env(환경변수)에서 자동 로드**.
+- `messages.create(...)`의 재료 4개:
+  - `model` — 어느 Claude에게 물을지.
+  - `max_tokens` — **답 길이 상한 (필수!)**. 토큰=단어조각. 256이면 256토큰에서 잘림 → 끊기면 올린다.
+  - `system` — Claude의 역할·규칙 ("세무사처럼").
+  - `messages` — 실제 대화. `{"role": "user", "content": ...}`가 내 질문.
+- `resp.content[0].text` — 응답은 **문자열이 아니라 블록 리스트**. 첫 블록의 `.text`가 보통 원하는 답.
+
+### 꼭 기억
+- `max_tokens` 없으면 에러.
+- `messages`가 리스트인 이유: HTTP는 stateless → Claude는 기억 못 함 → **매번 전체 대화를 다시 보내야** 함.
+- 현재 모델 ID: `claude-opus-4-8`(최강·기본 추천), `claude-sonnet-4-6`(균형), `claude-haiku-4-5`(빠름·저렴). 날짜 suffix 안 붙임.
+
 ## 다음
-- 11. What does it do? (잘하는 것 / 못하는 것 · 환각) 심화
-- 그 후 13. 첫 API 호출 → 14~18. 작은 챗 앱 만들기.
+- 14~18: 이 한 번의 호출을 백엔드 `/api/chat` 엔드포인트 안에 넣어 **작은 챗 앱** 만들기 (hello-world의 "고정된 답" 자리에 Claude 호출이 들어감).
