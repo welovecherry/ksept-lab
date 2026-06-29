@@ -189,6 +189,10 @@ PAGE_TEMPLATE = r"""<!doctype html>
     .sub {{ color: var(--muted); margin-top: 0; }}
     code {{ background: #1f2530; padding: .1rem .35rem; border-radius: 4px; font-size: .9em; }}
     .card {{ background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; margin: 1rem 0; }}
+    /* 쉬운 비유 상자 (각 섹션 맨 위) */
+    .analogy {{ background: #11271a; border-left: 3px solid var(--green);
+      border-radius: 6px; padding: .65rem .9rem; margin: 0 0 .85rem; font-size: .98rem; }}
+    .analogy b {{ color: var(--green); }}
     .mermaid {{ background: #fff; border-radius: 8px; padding: 1rem; margin: .75rem 0; overflow-x: auto; }}
     /* Mermaid에 HTML 라벨(<br/>)이 있으면 글자색이 페이지 CSS를 상속해 흰 배경에 묻힘.
        다이어그램 내부 텍스트는 항상 어두운색으로 강제한다. */
@@ -257,13 +261,16 @@ PAGE_TEMPLATE = r"""<!doctype html>
   </aside>
   <div class="wrap">
     <h1>ksept-lab <span class="badge">작업일지</span></h1>
-    <p class="sub">Flask + React(Vite) hello-world를 만들며 배운 것들 · 마지막 업데이트 {last_updated} · 커밋 {count}개</p>
+    <p class="sub">Flask + React(Vite) hello-world를 만들며 배운 것 — <b>쉬운 말 버전</b> · 마지막 업데이트 {last_updated} · 커밋 {count}개</p>
 
-    <h2 id="how">1. 이 프로젝트가 작동하는 방식</h2>
+    <h2 id="how">1. 이 앱은 어떻게 움직일까?</h2>
     <div class="card">
-      <p>두 개의 <strong>독립된 서버</strong>가 돈다. Flask(:5001)는 JSON 데이터를,
-         Vite(:5173)는 React 화면을 책임진다. 브라우저는 5173하고만 대화하고,
-         <code>/api/*</code> 요청은 Vite가 몰래 Flask로 넘긴다(프록시).</p>
+      <div class="analogy">📚 <b>비유:</b> 식당을 떠올려요. 손님(브라우저)은 <b>홀 직원</b>(화면 담당)하고만 이야기해요.
+        주방(데이터 담당)은 직접 안 만나요. 주문이 들어오면 홀 직원이 대신 주방에 전하고, 음식을 받아다 손님에게 줘요.</div>
+      <p>우리 앱은 프로그램이 <strong>두 개</strong>예요. 하나는 <b>화면</b>을 보여주고(React, 5173번 문),
+         하나는 <b>데이터</b>를 만들어요(Flask, 5001번 문). 브라우저는 화면 담당하고만 이야기하고,
+         데이터가 필요하면 화면 담당이 <b>대신</b> 데이터 담당에게 물어봐요.
+         이렇게 대신 전해 주는 걸 <code>프록시</code>라고 해요.</p>
       <div class="mermaid">
 sequenceDiagram
     participant B as Browser (:5173)
@@ -276,16 +283,17 @@ sequenceDiagram
     V-->>B: 200 {{"message":"Hello from Flask"}}
     Note over B: React setState -> re-render message
       </div>
-      <p class="note">브라우저 입장에선 전부 5173에서 온 응답이라, 다음에 볼 CORS 문제가 아예 생기지 않는다.</p>
+      <p class="note">🗺️ <b>그림 읽는 법:</b> 화살표를 <b>위 → 아래 순서</b>로 따라가요. 주문이 손님→홀→주방으로 갔다가, 음식이 거꾸로 손님에게 돌아오는 길이에요.</p>
     </div>
 
-    <h2 id="cors">2. CORS — 왜 프록시가 이걸 우회하나</h2>
+    <h2 id="cors">2. CORS — 브라우저의 "낯선 사람 조심"</h2>
     <div class="card">
-      <p>브라우저는 보안상 <strong>다른 출처(origin)</strong>의 응답을 JS가 읽지 못하게 막는다
-         (Same-Origin Policy). 출처 = (scheme, host, port) 셋이 모두 같아야 한다.
-         <code>localhost:5173</code> ≠ <code>localhost:5001</code> 이므로 직접 부르면 막힌다.
-         서버가 <code>Access-Control-Allow-Origin</code> 헤더를 붙여줘야(=flask-cors) 풀린다.
-         하지만 dev에선 프록시 덕에 브라우저가 보기엔 동일 출처라 검사 자체가 안 일어난다.</p>
+      <div class="analogy">📚 <b>비유:</b> 브라우저는 깐깐한 <b>경비원</b>이에요. 우리 집(5173)에서 보낸 편지의 답장은 받아주지만,
+        <b>모르는 집</b>(5001)에서 온 답장은 "누구세요?" 하며 막아요.</div>
+      <p>브라우저는 안전을 위해, <b>주소가 다른 곳</b>에서 온 데이터를 함부로 못 읽게 막아요.
+         이 규칙 이름이 <code>CORS</code>예요. 5173과 5001은 끝번호(포트)가 달라서 '다른 곳'으로 쳐요.
+         푸는 방법은 둘이에요: ① 서버가 "얘는 믿어도 돼요" <b>도장</b>을 찍어주거나(<code>flask-cors</code>),
+         ② 애초에 <b>같은 집처럼 보이게</b> 프록시로 전해 주기. 개발 중엔 ②(프록시) 덕분에 막힐 일이 없어요.</p>
       <div class="mermaid">
 flowchart TD
     A[Browser JS: fetch] --> B{{Same origin?}}
@@ -294,14 +302,16 @@ flowchart TD
     D -- Yes, flask-cors added it --> E[Browser exposes body to JS]
     D -- No --> F[Browser blocks: CORS error]
       </div>
-      <p class="note">그래서 우리는 안전망으로 <code>flask-cors</code>도 켜두고, 동시에 프록시도 쓴다. 두 겹.</p>
+      <p class="note">🗺️ <b>그림 읽는 법:</b> 갈림길에서 "같은 집인가?"를 먼저 물어요. <b>예</b>면 그냥 통과, <b>아니오</b>면 "믿어도 된다는 도장 있나?"를 또 확인해요. 도장이 없으면 막혀요(CORS 에러).</p>
     </div>
 
-    <h2 id="venv">3. 가상환경(venv)은 무엇을 격리하나</h2>
+    <h2 id="venv">3. 가상환경(venv) — 프로젝트 전용 서랍</h2>
     <div class="card">
-      <p><code>python3 -m venv .venv</code>는 프로젝트 전용 파이썬 + 전용 <code>site-packages</code>를 만든다.
-         <code>pip install</code>은 시스템이 아니라 이 폴더 안에 쓴다. 그래서 프로젝트마다
-         버전이 충돌하지 않고, 시스템 파이썬은 깨끗하게 유지된다.</p>
+      <div class="analogy">📚 <b>비유:</b> 프로젝트마다 <b>전용 서랍</b>을 따로 두는 거예요. 이 서랍에 도구(라이브러리)를 넣어도,
+        다른 서랍이나 공용 책상(컴퓨터 전체)은 전혀 안 건드려요.</div>
+      <p>파이썬 도구를 컴퓨터 <b>전체</b>에 깔면 프로젝트끼리 버전이 서로 꼬여요.
+         <code>venv</code>는 <b>이 프로젝트만의 공간</b>이에요. 여기 깔면 다른 곳은 깨끗하게 유지돼요.
+         <code>activate</code>는 "지금 이 서랍을 열어둔다"는 뜻일 뿐이에요.</p>
       <div class="mermaid">
 flowchart LR
     subgraph SYS["System Python 3.9"]
@@ -314,14 +324,15 @@ flowchart LR
     pip["pip install -r requirements.txt"] --> vp
     pip -. "does NOT touch" .-> sp
       </div>
-      <p class="note"><code>source .venv/bin/activate</code>는 단지 <code>.venv/bin</code>을 PATH 앞에 끼워주는 단축일 뿐.</p>
+      <p class="note">🗺️ <b>그림 읽는 법:</b> <code>pip install</code> 화살표가 <b>전용 서랍(.venv)</b>으로만 들어가요. 공용 책상(System)으로 가는 길은 점선 = "건드리지 않음"이에요.</p>
     </div>
 
-    <h2 id="deploy">4. 로컬 → GitHub → Pages 배포 흐름</h2>
+    <h2 id="deploy">4. 인터넷에 올리기 (GitHub Pages)</h2>
     <div class="card">
-      <p><code>git commit</code>은 로컬에 스냅샷을 찍고, <code>git push</code>는 그걸 GitHub로 보낸다.
-         GitHub Pages를 <code>main</code>의 <code>/docs</code> 폴더로 설정해두면, 푸시될 때마다
-         그 폴더의 정적 파일을 웹에 띄운다.</p>
+      <div class="analogy">📚 <b>비유:</b> <code>git commit</code>은 지금 상태를 <b>사진 찍어 저장</b>, <code>git push</code>는 그 사진을 <b>GitHub에 올리기</b>예요.
+        GitHub Pages는 올린 폴더를 <b>무료 웹사이트</b>로 띄워주는 서비스고요.</div>
+      <p>코드를 저장하고(<code>commit</code>) GitHub로 보내면(<code>push</code>),
+         Pages가 <code>docs</code> 폴더를 웹페이지로 보여줘요. 그래서 누구나 인터넷에서 볼 수 있어요.</p>
       <div class="mermaid">
 sequenceDiagram
     participant L as Local repo
@@ -334,12 +345,16 @@ sequenceDiagram
     U->>P: GET index.html
     P-->>U: static HTML + Mermaid (rendered in browser)
       </div>
+      <p class="note">🗺️ <b>그림 읽는 법:</b> 왼쪽부터 <b>내 컴퓨터 → GitHub → Pages → 방문자</b> 순서로 흘러가요.</p>
     </div>
 
-    <h2 id="auto">5. 이 작업일지는 어떻게 자동으로 갱신되나</h2>
+    <h2 id="auto">5. 이 일지가 저절로 써지는 이유</h2>
     <div class="card">
-      <p><code>scripts/build_docs.py</code>가 <code>git log</code>를 읽어 이 페이지의 타임라인을 다시 만든다.
-         즉 <strong>커밋 메시지가 곧 작업일지</strong>다. 커밋 → 생성기 실행 → 푸시.</p>
+      <div class="analogy">📚 <b>비유:</b> 일기를 손으로 안 쓰고, <b>"오늘 한 일 목록"을 그대로 옮겨 적어주는 자동 비서</b>가 있는 셈이에요.
+        그 목록이 바로 <code>git log</code>(여태까지의 저장 기록)예요.</div>
+      <p><code>scripts/build_docs.py</code>라는 작은 프로그램이 <code>git log</code>를 읽어 이 페이지를 다시 만들어요.
+         그래서 <strong>커밋 메시지를 잘 쓰면, 그게 그대로 일지</strong>가 돼요.
+         지금은 GitHub Actions가 <code>push</code>할 때마다 이 일을 <b>자동</b>으로 해줘요.</p>
       <div class="mermaid">
 flowchart LR
     C[git commit] --> R[run build_docs.py]
@@ -348,7 +363,7 @@ flowchart LR
     W --> C2[git commit docs] --> PUSH[git push]
     PUSH --> PAGES[GitHub Pages redeploys]
       </div>
-      <p class="note">한계: 페이지는 자기 자신을 만든 커밋은 못 담는다(해시는 내용으로 정해지므로 자기 해시를 자기 안에 넣을 수 없다). 그래서 항상 한 박자 늦다 — GitHub Actions로 없앨 수 있는 lag.</p>
+      <p class="note">🗺️ <b>그림 읽는 법:</b> 한 바퀴 도는 흐름이에요 — <b>저장 → 읽기 → 새로 쓰기 → 다시 올리기</b>. 예전엔 한 박자 늦었지만, 지금은 자동(Actions)이라 바로 최신이에요.</p>
     </div>
 
     <h2 id="log">작업일지 (git log)</h2>
