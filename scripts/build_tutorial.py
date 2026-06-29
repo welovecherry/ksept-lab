@@ -76,7 +76,8 @@ def localize_images(html_str, slug):
         url = m.group(1)
         if url.startswith("data:"):  # 인라인 SVG/base64는 그대로 둔다
             return m.group(0)
-        full = url if url.startswith("http") else f"{BASE}/{url.lstrip('/')}"
+        # 상대경로 './assets/..' 같은 형태를 urljoin으로 정규화(BASE/./.. 404 방지)
+        full = url if url.startswith("http") else urllib.parse.urljoin(BASE + "/", url)
         raw_name = urllib.parse.unquote(url.split("/")[-1].split("?")[0])
         fname = f"{slug}-{raw_name}".replace(" ", "-")
         dest = ASSETS / fname
