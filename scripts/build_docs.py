@@ -17,6 +17,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 OUT_HOME = ROOT / "docs" / "index.html"
 OUT_CHANGELOG = ROOT / "docs" / "changelog.html"
+OUT_NOTES = ROOT / "docs" / "notes.html"
+
+# 사이트 수준 내비 (홈/노트/변경이력이 공유하는 사이드바) — '섹션 이동'만, 모듈/앵커 안 섞음
+SITE = [
+    ("index.html", "🏠 홈"),
+    ("learn/index.html", "📚 학습 시작"),
+    ("tutorial/index.html", "📖 원본 보관소"),
+    ("notes.html", "🧩 프로젝트 노트"),
+    ("changelog.html", "📜 변경 이력"),
+]
 
 GIT_FORMAT = "%H%x1f%h%x1f%an%x1f%ad%x1f%s%x1f%b%x1e"
 RECENT_LIMIT = 20
@@ -108,35 +118,54 @@ def render_timeline(commits):
     return out
 
 
-# ── 공유 사이드바 ─────────────────────────────────────────────────────────────
-def sidebar_html():
-    topics = "".join(f'<a href="{href}">{html.escape(name)}</a>' for href, name, _ in MODULES)
-    concepts = "".join(f'<a href="index.html#{cid}">{html.escape(label)}</a>' for cid, label in CONCEPTS)
+# ── 공유 사이드바 (사이트 수준 내비만) ────────────────────────────────────────
+def sidebar_html(active=""):
+    items = []
+    for href, name in SITE:
+        cls = ' class="active"' if href == active else ""
+        items.append(f'<a href="{href}"{cls}>{html.escape(name)}</a>')
+    links = "".join(items)
     return f"""  <aside class="sidebar">
     <div class="side-title"><a href="index.html">📒 ksept-lab</a></div>
-    <div class="side-group">📚 주제별 학습</div>
-    <nav>{topics}</nav>
-    <div class="side-group">🧩 기초 개념</div>
-    <nav>{concepts}</nav>
-    <div class="side-foot"><a href="changelog.html">📜 변경 이력</a><br>welovecherry/ksept-lab</div>
+    <nav>{links}</nav>
+    <div class="side-foot">welovecherry/ksept-lab</div>
   </aside>"""
 
 
 # ── 홈 본문 ───────────────────────────────────────────────────────────────────
 def home_body(last_updated, count):
+    entry = [
+        ("learn/index.html", "📚 학습 시작", "원본 + 내 노트 + 인터랙티브 퀴즈로 공부하는 곳"),
+        ("tutorial/index.html", "📖 원본 보관소", "스크랩한 튜토리얼 슬라이드 원본 (참고용)"),
+        ("notes.html", "🧩 프로젝트 노트", "작동방식·CORS·venv·배포를 쉬운 말로 정리"),
+        ("changelog.html", "📜 변경 이력", "커밋 메시지로 자동 생성되는 작업일지"),
+    ]
+    entry_cards = "".join(
+        f'<a class="entrycard" href="{h}"><b>{html.escape(n)}</b><span>{html.escape(d)}</span></a>'
+        for h, n, d in entry
+    )
     cards = "".join(
         f'<a class="topiccard" href="{href}"><b>{html.escape(name)}</b><span>{html.escape(desc)}</span></a>'
-        for href, name, desc in MODULES
+        for href, name, desc in MODULES[1:]
     )
-    return f"""    <h1>ksept-lab <span class="badge">학습 허브</span></h1>
-    <p class="sub">Flask + React(Vite) 풀스택을 만들며 공부하는 곳 · 주제를 고르면 <b>학습본(원본)</b>과 <b>내 작업일지(메모)</b>가 한 페이지에 있어요.</p>
+    return f"""    <h1>ksept-lab <span class="badge">학습 홈</span></h1>
+    <p class="sub">Claude Code로 풀스택을 배우는 개인 학습 사이트예요. 아래에서 갈 곳을 고르세요.</p>
 
-    <h2>📚 주제별 학습</h2>
-    <p class="note">아래에서 주제를 클릭하면, 그 페이지 위쪽엔 <b>📖 학습본(읽기 전용)</b>, 아래쪽엔 <b>📝 내 작업일지</b>가 나와요.</p>
+    <div class="entry-grid">{entry_cards}</div>
+
+    <h2>📚 모듈 바로가기</h2>
+    <p class="note">특정 주제로 바로 가고 싶다면. 각 페이지엔 <b>학습본 + 내 노트 + 퀴즈</b>가 있어요.</p>
     <div class="topic-grid">{cards}</div>
 
-    <h2>🧩 기초 개념 (직접 정리)</h2>
-    <p class="note">이 프로젝트를 만들며 이해한 핵심을 쉬운 말로 정리한 노트예요.</p>
+    <p class="note" style="margin-top:2rem">마지막 업데이트 {html.escape(last_updated)} · 커밋 {count}개 ·
+      <a href="https://github.com/welovecherry/ksept-lab">소스</a> · <a href="changelog.html">📜 변경 이력</a></p>"""
+
+
+def notes_body():
+    jump = " · ".join(f'<a href="#{cid}">{html.escape(label)}</a>' for cid, label in CONCEPTS)
+    return f"""    <h1>🧩 프로젝트 노트 <span class="badge">직접 정리</span></h1>
+    <p class="sub"><a href="index.html">← 홈으로</a> · 이 사이트(Flask + React + GitHub Pages)를 만들며 이해한 핵심을 쉬운 말로 정리했어요.</p>
+    <p class="note">바로가기: {jump}</p>
 
     <h2 id="how">이 앱은 어떻게 움직일까?</h2>
     <div class="card">
@@ -238,22 +267,21 @@ flowchart LR
       <p class="note">🗺️ <b>그림 읽는 법:</b> 저장 → 올리기 → 자동 빌드 → 배포. 손댈 곳은 <b>커밋 메시지</b>와 <b>notes/*.md</b>뿐이에요.</p>
     </div>
 
-    <p class="note" style="margin-top:2rem">마지막 업데이트 {html.escape(last_updated)} · 커밋 {count}개 ·
-      <a href="https://github.com/welovecherry/ksept-lab">소스</a> · <a href="changelog.html">📜 변경 이력</a></p>"""
+    <p class="note" style="margin-top:2.5rem"><a href="index.html">← 홈으로</a> · <a href="changelog.html">📜 변경 이력</a></p>"""
 
 
 # ── 변경 이력 본문 ────────────────────────────────────────────────────────────
 def changelog_body(timeline, last_updated, count):
     return f"""    <h1>📜 변경 이력 <span class="badge">git log</span></h1>
-    <p class="sub"><a href="index.html">← 학습 허브로</a> · 커밋 메시지에서 자동 생성 · 마지막 업데이트 {html.escape(last_updated)} · {count}개</p>
+    <p class="sub"><a href="index.html">← 홈으로</a> · 커밋 메시지에서 자동 생성 · 마지막 업데이트 {html.escape(last_updated)} · {count}개</p>
     <div class="timeline-wrap">
 {timeline}
     </div>"""
 
 
 # ── 공통 셸(레이아웃 + 스타일) ────────────────────────────────────────────────
-def shell(title, body):
-    return SHELL.format(title=html.escape(title), sidebar=sidebar_html(), body=body)
+def shell(title, body, active=""):
+    return SHELL.format(title=html.escape(title), sidebar=sidebar_html(active), body=body)
 
 
 def build():
@@ -262,12 +290,20 @@ def build():
     count = len(commits)
 
     OUT_HOME.parent.mkdir(parents=True, exist_ok=True)
-    OUT_HOME.write_text(shell("ksept-lab · 학습 허브", home_body(last_updated, count)), encoding="utf-8")
-    OUT_CHANGELOG.write_text(
-        shell("변경 이력 · ksept-lab", changelog_body(render_timeline(commits), last_updated, count)),
+    OUT_HOME.write_text(
+        shell("ksept-lab · 학습 홈", home_body(last_updated, count), active="index.html"),
         encoding="utf-8",
     )
-    print(f"wrote {OUT_HOME.relative_to(ROOT)} and {OUT_CHANGELOG.relative_to(ROOT)}  ({count} commits)")
+    OUT_NOTES.write_text(
+        shell("프로젝트 노트 · ksept-lab", notes_body(), active="notes.html"),
+        encoding="utf-8",
+    )
+    OUT_CHANGELOG.write_text(
+        shell("변경 이력 · ksept-lab", changelog_body(render_timeline(commits), last_updated, count),
+              active="changelog.html"),
+        encoding="utf-8",
+    )
+    print(f"wrote index.html, notes.html, changelog.html  ({count} commits)")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -300,6 +336,7 @@ SHELL = r"""<!doctype html>
     .sidebar nav {{ display: flex; flex-direction: column; gap: .1rem; }}
     .sidebar nav a {{ color: var(--fg); text-decoration: none; padding: .4rem .6rem; border-radius: 6px; font-size: .92rem; }}
     .sidebar nav a:hover {{ background: #1f2530; color: var(--accent); }}
+    .sidebar nav a.active {{ background: #1f6feb22; color: var(--accent); font-weight: 600; }}
     .side-foot {{ color: var(--muted); font-size: .8rem; margin-top: 1.5rem; line-height: 1.7; }}
     .side-foot a {{ color: var(--accent); text-decoration: none; }}
     @media (max-width: 720px) {{
@@ -323,6 +360,12 @@ SHELL = r"""<!doctype html>
     .mermaid .edgeLabel {{ background-color: #fff !important; }}
     .note {{ color: var(--muted); font-size: .92rem; }}
     .note a {{ color: var(--accent); }}
+    .entry-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .8rem; margin: 1.5rem 0; }}
+    .entrycard {{ display: block; background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+      padding: 1.1rem 1.25rem; text-decoration: none; transition: border-color .12s, background .12s; }}
+    .entrycard:hover {{ border-color: var(--accent); background: #1b2330; }}
+    .entrycard b {{ display: block; font-size: 1.12rem; color: var(--fg); margin-bottom: .3rem; }}
+    .entrycard span {{ font-size: .88rem; color: var(--muted); line-height: 1.5; }}
     .topic-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: .6rem; margin: 1rem 0 1.5rem; }}
     .topiccard {{ display: block; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: .7rem .9rem; text-decoration: none; }}
     .topiccard:hover {{ border-color: var(--accent); }}

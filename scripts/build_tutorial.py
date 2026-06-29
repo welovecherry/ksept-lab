@@ -264,9 +264,8 @@ LANDING_TMPL = """<!doctype html>
     <div class="side-foot">출처: ksetp.netlify.app</div>
   </aside>
   <div class="wrap">
-    <h1>튜토리얼 아카이브</h1>
-    <p class="sub">Full Stack Application Development with Coding Agents — 모듈 7개 · 슬라이드 {total}개</p>
-    <p class="sub">원본: <a href="{src}" target="_blank" rel="noopener">{src}</a></p>
+    <h1>📖 원본 슬라이드 보관소</h1>
+    <p class="sub">Full Stack Application Development with Coding Agents — 모듈 7개 · 슬라이드 {total}개 · 원본: <a href="{src}" target="_blank" rel="noopener">{src}</a></p>
 
     <section class="roadmap">
       <h2>🗺 일주일 학습 로드맵</h2>

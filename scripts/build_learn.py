@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
 """
-build_learn.py — 원본 튜토리얼 + 내 학습 노트 = 학습본(docs/learn/) 생성기
+build_learn.py — 원본 튜토리얼 + 내 노트 = 통합 학습본(docs/learn/)
 
-입력 (사람이 쓰는 것, git 추적):
-  - docs/tutorial/*.html  : 원본 튜토리얼 (절대 수정하지 않음)
-  - notes/<module>.md     : 내 학습 노트 (마크다운)
+구조:
+  - 각 슬라이드(<h2 id="slide-N">)를 <details>로 감싸 접을 수 있게.
+  - 그 슬라이드에 해당하는 내 노트를 원본 바로 아래에 인라인으로 삽입.
+  - 사이드바는 계층형: 모듈 → (현재 모듈의) 슬라이드 목록(#slide-N 점프).
+  - 원본 보관소(docs/tutorial/*)는 그대로 두고 사이드바 하단에서 링크.
 
-출력 (자동 생성, .gitignore):
-  - docs/learn/<module>.html : 원본 맨 아래에 "📝 내 학습 노트"를 붙인 합본
+입력(사람이 씀, git 추적):
+  - docs/tutorial/*.html   원본 (수정 안 함)
+  - notes/<module>.md      내 노트. `@slide-N` 줄로 슬라이드별 분리, 그 전은 개요.
+  - quizzes/<module>.json  (선택) 슬라이드 본문을 인터랙티브 퀴즈로 교체
 
-의존성 없음(파이썬 표준 라이브러리만). 마크다운은 아래 간이 변환기로 처리.
+출력(자동 생성, .gitignore):
+  - docs/learn/<module>.html
+의존성 없음(표준 라이브러리만).
 """
 
 import html as html_lib
@@ -23,34 +29,95 @@ NOTES_DIR = ROOT / "notes"
 QUIZ_DIR = ROOT / "quizzes"
 OUT_DIR = ROOT / "docs" / "learn"
 
-# 학습 노트 영역 스타일 (각 학습본 <head>에 주입)
-NOTE_CSS = """
+SLIDE_OPEN = True  # 슬라이드를 기본 펼침으로(위→아래로 읽기). False면 접힌 채 시작.
+
+# 사이드바 모듈 순서 + 표시 이름 + 번호
+MODULES = [
+    ("index", "개요", ""),
+    ("setup", "Setup", "01"),
+    ("foundations", "Foundations", "02"),
+    ("tools", "Tools & Structure", "03"),
+    ("context", "Context", "04"),
+    ("agents", "Agents", "05"),
+    ("production", "Production", "06"),
+    ("workshop", "Workshop", "07"),
+]
+
+# ── 스타일 ────────────────────────────────────────────────────────────────────
+STYLE = """
 <style>
-  .mynote { margin-top: 2.5rem; border-top: 2px solid #3fb950; padding-top: 1rem; }
-  .mynote > h2 { color: #3fb950; }
-  /* 노트 내부 제목 계층 — 크기 + 포인트 색으로 가독성 (#=h3, ##=h4, ###=h5) */
-  .mynote h3 { font-size: 1.45rem; color: #58a6ff; margin: 1.9rem 0 .5rem;
-    padding-bottom: .3rem; border-bottom: 1px solid #30363d; }
-  .mynote h4 { font-size: 1.18rem; color: #3fb950; margin: 1.3rem 0 .4rem; }
-  .mynote h5 { font-size: 1.02rem; color: #e3b341; margin: 1rem 0 .3rem; }
-  .mynote strong { color: #e3b341; }
-  .mynote ol, .mynote ul { padding-left: 1.4rem; margin: .5rem 0; }
-  .mynote li { margin: .3rem 0; line-height: 1.7; }
-  .mynote p { line-height: 1.75; }
-  .mynote pre { background: #0d1117; color: #e6edf3; padding: .8rem 1rem;
+  /* 내 노트 (개요 + 인라인 공통: .notesbody) */
+  .notesbody h3 { font-size: 1.3rem; color: #58a6ff; margin: 1.3rem 0 .5rem;
+    padding-bottom: .25rem; border-bottom: 1px solid #30363d; }
+  .notesbody h4 { font-size: 1.12rem; color: #3fb950; margin: 1rem 0 .35rem; }
+  .notesbody h5 { font-size: 1rem; color: #e3b341; margin: .85rem 0 .3rem; }
+  .notesbody strong { color: #e3b341; }
+  .notesbody ol, .notesbody ul { padding-left: 1.4rem; margin: .5rem 0; }
+  .notesbody li { margin: .3rem 0; line-height: 1.7; }
+  .notesbody p { line-height: 1.75; }
+  .notesbody pre { background: #010409; color: #e6edf3; padding: .8rem 1rem;
     border-radius: 6px; overflow-x: auto; }
-  .mynote code { background: #1f2530; color: #e6edf3; padding: .1rem .35rem; border-radius: 4px; }
-  .mynote-empty { color: #8b949e; font-style: italic; }
+  .notesbody code { background: #1f2530; color: #e6edf3; padding: .1rem .35rem; border-radius: 4px; }
+
+  .module-note { border-top: 2px solid #3fb950; margin: 1.5rem 0 1rem; padding-top: 1rem; }
+  .module-note > h2 { color: #3fb950; }
   .learn-badge { display:inline-block; background:#3fb95022; color:#3fb950;
     border:1px solid #3fb95066; border-radius:999px; padding:.05rem .5rem; font-size:.75rem; margin-left:.4rem; }
   .readonly-banner { background:#1f2530; border:1px solid #30363d; border-radius:8px;
     padding:.6rem .9rem; margin:0 0 1.2rem; font-size:.9rem; color:#8b949e; }
   .readonly-banner b { color:#58a6ff; }
+
+  /* 슬라이드 접기 */
+  details.slide { border:1px solid #30363d; border-radius:8px; margin:.8rem 0; background:#0d1117; }
+  details.slide > summary { cursor:pointer; padding:.7rem 1rem; font-weight:700;
+    font-size:1.1rem; color:#e6edf3; list-style:none; }
+  details.slide > summary::-webkit-details-marker { display:none; }
+  details.slide > summary:hover { color:#58a6ff; }
+  details.slide > summary::before { content:"\\25B6"; color:#8b949e; font-size:.8rem; margin-right:.5rem; }
+  details.slide[open] > summary::before { content:"\\25BC"; }
+  details.slide[open] > summary { border-bottom:1px solid #30363d; }
+  .slide-num { display:inline-block; min-width:1.7em; color:#8b949e; font-variant-numeric:tabular-nums; }
+  .slide-body { padding:.6rem 1.1rem 1.1rem; }
+  .slide-body :target { scroll-margin-top: 1rem; }
+
+  /* 슬라이드 바로 아래 내 노트 */
+  .mynote-inline { margin-top:1.1rem; border-left:3px solid #3fb950;
+    background:#0f1a12; border-radius:0 8px 8px 0; padding:.6rem 1rem; }
+  .mynote-inline > h4 { margin:.2rem 0 .5rem; color:#3fb950; font-size:1rem; }
+
+  /* 계층 사이드바 */
+  .sidebar .modnav { display:flex; flex-direction:column; gap:.05rem; }
+  .sidebar .modnav > a { color:#e6edf3; text-decoration:none; padding:.35rem .5rem;
+    border-radius:6px; font-size:.92rem; }
+  .sidebar .modnav > a:hover { background:#1f2530; }
+  .sidebar .modnav > a.active { color:#58a6ff; font-weight:700; }
+  .sidebar .slidenav { display:flex; flex-direction:column;
+    border-left:1px solid #30363d; margin:.15rem 0 .5rem .65rem; padding-left:.4rem; }
+  .sidebar .slidenav > a { color:#8b949e; text-decoration:none; padding:.18rem .4rem;
+    border-radius:5px; font-size:.8rem; line-height:1.35; }
+  .sidebar .slidenav > a:hover { background:#1f2530; color:#58a6ff; }
+  .sidebar .side-foot a { color:#58a6ff; text-decoration:none; }
 </style>
 """
 
+# 해시(#slide-N)로 점프하면 그 슬라이드(접힌 details)를 자동으로 펼친다.
+HASH_JS = """
+<script>
+(function(){
+  function openHash(){
+    if(!location.hash) return;
+    var el; try { el = document.querySelector(location.hash); } catch(e){ return; }
+    var n = el;
+    while(n){ if(n.tagName === 'DETAILS'){ n.open = true; } n = n.parentElement; }
+    if(el) el.scrollIntoView();
+  }
+  window.addEventListener('hashchange', openHash);
+  window.addEventListener('load', openHash);
+})();
+</script>
+"""
 
-# 인터랙티브 퀴즈 스타일 + 동작 (학습본에만 주입)
+# ── 퀴즈 (선택) ───────────────────────────────────────────────────────────────
 QUIZ_CSS = """
 <style>
   .quiz { background:#0f1620; border:1px solid #30363d; border-radius:10px; padding:1rem 1.2rem; margin:1rem 0 1.5rem; }
@@ -58,24 +125,20 @@ QUIZ_CSS = """
   .quiz-q { margin:0; padding:1.4rem 0; }
   .quiz-q:first-of-type { padding-top:.4rem; }
   .quiz-q + .quiz-q { border-top:1px solid #30363d; }
-  .quiz-qnum { display:inline-block; font-weight:700; color:#58a6ff; font-size:.8rem;
-    letter-spacing:.06em; margin-bottom:.45rem; }
+  .quiz-qnum { display:inline-block; font-weight:700; color:#58a6ff; font-size:.8rem; letter-spacing:.06em; margin-bottom:.45rem; }
   .quiz-question { margin:0 0 .6rem; }
   .quiz-question .q-en { display:block; font-weight:700; color:#e6edf3; }
   .quiz-question .q-ko { display:block; color:#8b949e; font-size:.92rem; margin-top:.15rem; }
   .quiz-opts { display:flex; flex-direction:column; gap:.45rem; }
-  .quiz-opt { text-align:left; background:#161b22; color:#e6edf3; border:1px solid #30363d;
-    border-radius:8px; padding:.6rem .8rem; font:inherit; cursor:pointer; transition:background .12s,border-color .12s; }
+  .quiz-opt { text-align:left; background:#161b22; color:#e6edf3; border:1px solid #30363d; border-radius:8px; padding:.6rem .8rem; font:inherit; cursor:pointer; transition:background .12s,border-color .12s; }
   .quiz-opt:hover { border-color:#58a6ff; }
   .quiz-q.answered .quiz-opt { cursor:default; }
   .quiz-opt.correct { background:#1f6f2e33; border-color:#3fb950; color:#d6ffe0; }
   .quiz-opt.correct::after { content:"  \\2705"; }
   .quiz-opt.wrong { background:#6f1f1f33; border-color:#f85149; color:#ffdcdc; }
   .quiz-opt.wrong::after { content:"  \\274C"; }
-  .quiz-exp { margin-top:.7rem; padding:.7rem .9rem; background:#161b22; border:1px dashed #30363d;
-    border-radius:8px; color:#c9d1d9; line-height:1.6; }
-  .quiz-retry { margin-left:.6rem; background:none; border:1px solid #30363d; color:#58a6ff;
-    border-radius:6px; padding:.15rem .6rem; cursor:pointer; font:inherit; font-size:.85rem; }
+  .quiz-exp { margin-top:.7rem; padding:.7rem .9rem; background:#161b22; border:1px dashed #30363d; border-radius:8px; color:#c9d1d9; line-height:1.6; }
+  .quiz-retry { margin-left:.6rem; background:none; border:1px solid #30363d; color:#58a6ff; border-radius:6px; padding:.15rem .6rem; cursor:pointer; font:inherit; font-size:.85rem; }
   .quiz-retry:hover { border-color:#58a6ff; }
 </style>
 """
@@ -91,48 +154,17 @@ QUIZ_JS = """
       q.classList.add('answered');
       var correct = opt.getAttribute('data-correct') === 'true';
       opt.classList.add(correct ? 'correct' : 'wrong');
-      if (!correct){
-        var right = q.querySelector('.quiz-opt[data-correct="true"]');
-        if (right) right.classList.add('correct');
-      }
+      if (!correct){ var r = q.querySelector('.quiz-opt[data-correct="true"]'); if (r) r.classList.add('correct'); }
       var exp = q.querySelector('.quiz-exp'); if (exp) exp.hidden = false;
       return;
     }
     var retry = e.target.closest('.quiz-retry');
     if (retry){
-      var q2 = retry.closest('.quiz-q');
-      q2.classList.remove('answered');
+      var q2 = retry.closest('.quiz-q'); q2.classList.remove('answered');
       var opts = q2.querySelectorAll('.quiz-opt');
       for (var i=0;i<opts.length;i++){ opts[i].classList.remove('correct','wrong'); }
-      var exp2 = q2.querySelector('.quiz-exp'); if (exp2) exp2.hidden = true;
+      var e2 = q2.querySelector('.quiz-exp'); if (e2) e2.hidden = true;
     }
-  });
-})();
-</script>
-"""
-
-# 상단 탭(학습본 / 내 작업일지) 스타일 + 동작 (모든 학습본에 주입)
-TAB_CSS = """
-<style>
-  .tabbar { position: sticky; top: 0; z-index: 5; display: flex; gap: .4rem;
-    background: #0d1117; padding: .6rem 0; margin-bottom: 1rem; border-bottom: 1px solid #30363d; }
-  .tab-btn { background: #161b22; color: #8b949e; border: 1px solid #30363d;
-    border-radius: 8px; padding: .45rem 1rem; font: inherit; cursor: pointer; }
-  .tab-btn:hover { color: #e6edf3; border-color: #58a6ff; }
-  .tab-btn.active { color: #0d1117; background: #58a6ff; border-color: #58a6ff; font-weight: 700; }
-  .tab-panel.is-hidden { display: none; }
-</style>
-"""
-
-TAB_JS = """
-<script>
-(function(){
-  document.addEventListener('click', function(e){
-    var btn = e.target.closest('.tab-btn'); if(!btn) return;
-    var target = btn.getAttribute('data-target');
-    btn.parentNode.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.toggle('active', b===btn); });
-    document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.toggle('is-hidden', p.id !== target); });
-    window.scrollTo(0, 0);
   });
 })();
 </script>
@@ -142,7 +174,6 @@ _LETTERS = "ABCDEFGH"
 
 
 def render_quiz(quiz):
-    """퀴즈 데이터(dict) -> 인터랙티브 HTML 블록."""
     parts = ['<div class="quiz">']
     if quiz.get("review"):
         parts.append('<div class="quiz-review">🧠 <b>잠깐 복습</b><br>%s</div>'
@@ -168,8 +199,6 @@ def render_quiz(quiz):
 
 
 def inject_quizzes(html, module):
-    """quizzes/<module>.json이 있으면 해당 슬라이드 본문을 인터랙티브 퀴즈로 교체.
-    돌려주는 값: (바뀐 html, 퀴즈 1개라도 넣었는지 여부)."""
     qpath = QUIZ_DIR / f"{module}.json"
     if not qpath.exists():
         return html, False
@@ -177,22 +206,16 @@ def inject_quizzes(html, module):
     injected = False
     for sid, quiz in data.items():
         quiz_html = render_quiz(quiz)
-        # h2(슬라이드 제목)는 남기고, 그 슬라이드 본문(다음 h2/<hr> 전까지)을 교체
         pat = re.compile(
             r'(<h2 id="%s">.*?</h2>)(.*?)(?=<h2 id="slide-\d+">|<hr>)' % re.escape(sid),
-            re.S,
-        )
+            re.S)
         html, n = pat.subn(lambda m: m.group(1) + "\n" + quiz_html + "\n", html, count=1)
-        if n:
-            injected = True
-        else:
-            print(f"    ! quiz target {sid} not found in {module}")
+        injected = injected or bool(n)
     return html, injected
 
 
-# ── 아주 작은 마크다운 → HTML 변환기 (노트 작성에 필요한 부분집합) ──────────────
+# ── 마크다운 → HTML (필요한 부분집합) ─────────────────────────────────────────
 def _inline(text):
-    """한 줄 안의 인라인 마크다운: 코드 -> 굵게 -> 링크. (먼저 이스케이프)"""
     text = html_lib.escape(text)
     text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
     text = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", text)
@@ -214,32 +237,23 @@ def md_to_html(md):
 
     while i < len(lines):
         line = lines[i]
-
-        # 코드 펜스 ```
         if line.strip().startswith("```"):
-            close_lists()
-            i += 1
-            code = []
+            close_lists(); i += 1; code = []
             while i < len(lines) and not lines[i].strip().startswith("```"):
                 code.append(lines[i]); i += 1
-            i += 1  # 닫는 펜스 건너뜀
+            i += 1
             out.append("<pre><code>" + html_lib.escape("\n".join(code)) + "</code></pre>")
             continue
-
         s = line.strip()
         if not s:
             close_lists(); i += 1; continue
-
-        # 제목 (#=h3, ##=h4, ###=h5 — 페이지의 h2는 '학습 노트' 타이틀 전용)
         m = re.match(r"(#{1,6})\s+(.*)", s)
         if m:
             close_lists()
-            level = len(m.group(1))
-            tag = "h3" if level <= 1 else ("h4" if level == 2 else "h5")
+            lvl = len(m.group(1))
+            tag = "h3" if lvl <= 1 else ("h4" if lvl == 2 else "h5")
             out.append(f"<{tag}>{_inline(m.group(2))}</{tag}>")
             i += 1; continue
-
-        # 순서 없는 목록
         m = re.match(r"[-*]\s+(.*)", s)
         if m:
             if not in_ol and not in_ul:
@@ -248,8 +262,6 @@ def md_to_html(md):
                 close_lists(); out.append("<ul>"); in_ul = True
             out.append(f"<li>{_inline(m.group(1))}</li>")
             i += 1; continue
-
-        # 순서 있는 목록
         m = re.match(r"\d+\.\s+(.*)", s)
         if m:
             if not in_ul and not in_ol:
@@ -258,72 +270,129 @@ def md_to_html(md):
                 close_lists(); out.append("<ol>"); in_ol = True
             out.append(f"<li>{_inline(m.group(1))}</li>")
             i += 1; continue
-
-        # 일반 문단
         close_lists()
         out.append(f"<p>{_inline(s)}</p>")
         i += 1
-
     close_lists()
     return "\n".join(out)
 
 
-# ── 원본 + 노트 합치기 ────────────────────────────────────────────────────────
-def build_page(tut_path):
-    module = tut_path.stem  # e.g. "setup"
-    html = tut_path.read_text(encoding="utf-8")
+# ── 노트 파싱: @slide-N 마커로 슬라이드별 분리 ────────────────────────────────
+def parse_notes(md):
+    """('개요 md', {슬라이드번호: 'md'}) 반환. `@slide-N` 또는 `@N` 줄이 구분자."""
+    intro, by_slide, buf = [], {}, None
+    cur = intro
+    for line in md.split("\n"):
+        m = re.match(r"^@(?:slide-)?(\d+)\s*$", line.strip())
+        if m:
+            cur = by_slide.setdefault(m.group(1), [])
+            continue
+        cur.append(line)
+    intro_md = "\n".join(intro).strip()
+    slide_md = {k: "\n".join(v).strip() for k, v in by_slide.items()}
+    return intro_md, slide_md
 
-    # 원본의 퀴즈 슬라이드를 인터랙티브 퀴즈로 교체 (quizzes/<module>.json 있을 때)
+
+def extract_slides(html):
+    """[(번호, 제목)] — 사이드바용."""
+    out = []
+    for m in re.finditer(r'<h2 id="slide-(\d+)">(.*?)</h2>', html, re.S):
+        title = re.sub(r"<[^>]+>", "", m.group(2))      # 태그 제거
+        title = re.sub(r"\s*#\s*$", "", title).strip()  # 앵커 '#' 제거
+        out.append((m.group(1), title))
+    return out
+
+
+def build_sidebar(current, slides):
+    p = ['<aside class="sidebar">']
+    p.append('<div class="side-title"><a href="../index.html">📒 ksept-lab</a></div>')
+    p.append('<div class="side-group">📚 주제별 학습</div>')
+    p.append('<nav class="modnav">')
+    for fn, name, num in MODULES:
+        label = (num + " " if num else "") + name
+        active = ' class="active"' if fn == current else ""
+        p.append(f'<a href="{fn}.html"{active}>{html_lib.escape(label)}</a>')
+        if fn == current and slides:
+            p.append('<div class="slidenav">')
+            for sn, st in slides:
+                p.append(f'<a href="#slide-{sn}">{sn}. {html_lib.escape(st)}</a>')
+            p.append('</div>')
+    p.append('</nav>')
+    p.append(f'<div class="side-foot"><a href="../tutorial/{current}.html">📖 원본 보관소</a>'
+             f'<br><a href="../changelog.html">📜 변경 이력</a></div>')
+    p.append('</aside>')
+    return "\n".join(p)
+
+
+def build_page(tut_path):
+    module = tut_path.stem
+    html = tut_path.read_text(encoding="utf-8")
     html, has_quiz = inject_quizzes(html, module)
 
-    # 노트 읽기 (없으면 빈 안내)
+    # 학습 개요(랜딩)는 원본 보관소 인덱스에서 파생되므로 제목만 학습용으로 교체
+    if module == "index":
+        html = re.sub(r"<h1>.*?</h1>", "<h1>📚 학습 개요</h1>", html, count=1, flags=re.S)
+        html = html.replace("<title>튜토리얼 · ksept-lab</title>",
+                            "<title>학습 개요 · ksept-lab</title>")
+
+    slides = extract_slides(html)
+
+    # 노트 읽기/파싱
     note_path = NOTES_DIR / f"{module}.md"
-    if note_path.exists() and note_path.read_text(encoding="utf-8").strip():
-        notes_html = md_to_html(note_path.read_text(encoding="utf-8"))
-    else:
-        notes_html = (
-            f'<p class="mynote-empty">아직 노트가 없어요. '
-            f'<code>notes/{module}.md</code>에 적으면 여기에 자동으로 나타나요.</p>'
+    raw = note_path.read_text(encoding="utf-8") if note_path.exists() else ""
+    intro_md, slide_md = parse_notes(raw)
+    slide_html = {n: md_to_html(md) for n, md in slide_md.items() if md}
+
+    # 각 슬라이드를 <details>로 감싸고, 해당 노트를 본문 아래에 인라인 삽입
+    open_attr = " open" if SLIDE_OPEN else ""
+
+    def wrap(m):
+        n = m.group(1)
+        title = re.sub(r'<a class="anchor"[^>]*>#</a>', "", m.group(2)).strip()
+        body = m.group(3)
+        note = slide_html.get(n)
+        note_block = (
+            f'<div class="mynote-inline"><h4>📝 내 노트</h4>'
+            f'<div class="notesbody">{note}</div></div>' if note else ""
         )
+        return (f'<details class="slide" id="slide-{n}"{open_attr}>'
+                f'<summary><span class="slide-num">{n}</span> {title}</summary>'
+                f'<div class="slide-body">{body}{note_block}</div></details>')
 
-    note_block = (
-        '\n    <section class="mynote" id="mynote">\n'
-        '      <h2>📝 내 작업일지 <span class="learn-badge">내가 작성</span></h2>\n'
-        f'      {notes_html}\n'
-        '    </section>\n'
-    )
+    html = re.sub(
+        r'<h2 id="slide-(\d+)">(.*?)</h2>(.*?)(?=<h2 id="slide-\d+">|<hr>)',
+        wrap, html, flags=re.S)
 
-    # docs/learn/ 에서 ../tutorial 의 정적 자원을 참조하도록 경로 보정
+    # 사이드바 교체 (계층형)
+    html = re.sub(r'<aside class="sidebar">.*?</aside>',
+                  lambda _: build_sidebar(module, slides), html, count=1, flags=re.S)
+
+    # 본문 맨 위: 배너 + (있으면) 개요 노트
+    if module == "index":
+        banner = ('<div class="readonly-banner">📚 <b>학습 개요</b> — 아래 로드맵에서 모듈을 고르세요. '
+                  '각 모듈 페이지엔 <b>원본 + 내 노트 + 퀴즈</b>가 있어요.</div>')
+    else:
+        banner = ('<div class="readonly-banner">📚 <b>통합 학습본</b> — 각 슬라이드(원본) 아래에 '
+                  '<b>📝 내 노트</b>가 붙어요. 슬라이드 제목을 누르면 접고/펼칠 수 있어요. '
+                  '순수 원본은 사이드바 하단 <b>📖 원본 보관소</b>.</div>')
+    intro_block = ""
+    if intro_md:
+        intro_block = ('<section class="module-note"><h2>📝 내 작업일지 '
+                       '<span class="learn-badge">개요</span></h2>'
+                       f'<div class="notesbody">{md_to_html(intro_md)}</div></section>')
+    html = html.replace('<div class="wrap">',
+                        '<div class="wrap">\n    ' + banner + intro_block, 1)
+
+    # 정적 자원 경로 보정 (docs/learn → ../tutorial)
     html = html.replace('href="style.css"', 'href="../tutorial/style.css"')
     html = html.replace('src="assets/', 'src="../tutorial/assets/')
     html = html.replace('href="assets/', 'href="../tutorial/assets/')
 
-    # ── 탭 구조로 감싸기 (JS 주입 전에! 끝부분 </div></div></body>가 깨끗할 때) ──
-    banner = ('<div class="readonly-banner">📖 <b>학습본</b> — 원본 튜토리얼(읽기 전용). '
-              '메모는 위 <b>📝 내 작업일지</b> 탭에 있어요.</div>')
-    tabbar = ('<div class="tabbar">'
-              '<button class="tab-btn active" data-target="panel-learn">📖 학습본</button>'
-              '<button class="tab-btn" data-target="panel-notes">📝 내 작업일지</button>'
-              '</div>')
-    # 1) wrap 시작 직후: 탭바 + 학습본 패널 열기 + 배너
-    html = html.replace(
-        '<div class="wrap">',
-        '<div class="wrap">\n  ' + tabbar + '\n  <div class="tab-panel" id="panel-learn">\n    ' + banner,
-        1,
-    )
-    # 2) wrap 끝(</div></div></body>) 직전: 학습본 패널 닫고, 작업일지 패널(노트) 추가
-    tail = ('\n  </div><!--/panel-learn-->\n'
-            '  <div class="tab-panel is-hidden" id="panel-notes">' + note_block +
-            '  </div><!--/panel-notes-->')
-    html, n = re.subn(r'</div>(\s*</div>\s*</body>)', tail + r'\n  </div>\1', html, count=1)
-    if n == 0:  # 예상 구조가 아니면 탭 없이 노트만 덧붙임(안전망)
-        html = html.replace('</body>', note_block + '</body>', 1)
-
-    # 스타일/동작 주입: 노트 + 탭 (+ 퀴즈가 있으면 퀴즈)
-    head_inject = NOTE_CSS + TAB_CSS + (QUIZ_CSS if has_quiz else "")
-    html = html.replace("</head>", head_inject + "</head>", 1)
-    body_inject = TAB_JS + (QUIZ_JS if has_quiz else "")
-    html = html.replace("</body>", body_inject + "</body>", 1)
+    # 스타일/스크립트 주입
+    head = STYLE + (QUIZ_CSS if has_quiz else "")
+    html = html.replace("</head>", head + "</head>", 1)
+    body = HASH_JS + (QUIZ_JS if has_quiz else "")
+    html = html.replace("</body>", body + "</body>", 1)
 
     return module, html
 
