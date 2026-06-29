@@ -70,7 +70,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
 details.toc { background: var(--panel); border: 1px solid var(--border);
   border-radius: 10px; padding: .5rem 1rem; margin: 1.5rem 0; }
 details.toc > summary { cursor: pointer; color: var(--accent); font-weight: 600; padding: .3rem 0; }
-details.toc ol { margin: .5rem 0; padding-left: 1.4rem; columns: 2; }
+details.toc ul { margin: .5rem 0; padding-left: 0; list-style: none; columns: 2; }
 details.toc li { margin: .15rem 0; }
 details.toc a { color: var(--fg); text-decoration: none; }
 details.toc a:hover { color: var(--accent); }
@@ -108,5 +108,5 @@ details.toc a:hover { color: var(--accent); }
   .sidebar { position: static; width: auto; height: auto;
     border-right: none; border-bottom: 1px solid var(--border); }
   .sidebar nav { flex-direction: row; flex-wrap: wrap; }
-  details.toc ol { columns: 1; }
+  details.toc ul { columns: 1; }
 }

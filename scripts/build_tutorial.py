@@ -237,7 +237,7 @@ PAGE_TMPL = """<!doctype html>
     <h1>{title}</h1>
     <p class="sub">Module {index}/{total} · 슬라이드 {count}개 · <a href="{src}" target="_blank" rel="noopener">원본 슬라이드 ↗</a></p>
     <p class="sub">{subtitle}</p>
-    <details class="toc"><summary>이 모듈의 슬라이드 {count}개</summary><ol>{toc}</ol></details>
+    <details class="toc"><summary>이 모듈의 슬라이드 {count}개</summary><ul>{toc}</ul></details>
 {body}
     <hr>
     <p class="sub">출처: <a href="{src}" target="_blank" rel="noopener">{src}</a> · ksept-lab 학습 아카이브</p>
