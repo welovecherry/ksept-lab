@@ -55,31 +55,76 @@
 
 @slide-13
 
-## 첫 API 호출 — 코드 해부
+## 첫 API 호출 — 손으로 직접 해보기
 
-비유: Claude에게 **전화 한 통**.
+이 슬라이드 하나만 제대로 잡으면 챗 앱은 그냥 "이걸 웹으로 감싼 것"이에요. 그래서 **개념 → 준비물 → 진짜 1파일 실행 → 한 줄씩 해부 → 에러 대처** 순서로 천천히 갑니다.
 
-```python
-from anthropic import Anthropic
-client = Anthropic()              # .env의 ANTHROPIC_API_KEY 자동 로드
-resp = client.messages.create(
-    model="claude-sonnet-4-6",
-    max_tokens=256,
-    system="You are a tax advisor...",
-    messages=[{"role": "user", "content": "..."}],
-)
-print(resp.content[0].text)
+### 0단계 · "API 호출"이 대체 뭔가
+**비유 — 식당 주방에 주문서 넣기.** 내 코드는 손님이고, Anthropic 서버는 주방이에요. 정해진 양식의 **주문서(요청)**를 창구에 넣으면, 주방이 **요리(응답)**해서 돌려줘요. 주방이 *어떻게* 요리하는지는 몰라도 됩니다 — 양식만 맞으면 돼요.
+
+**기술적으로는:** 내 컴퓨터 → 인터넷 → Anthropic 서버의 주소 한 곳(`https://api.anthropic.com/v1/messages`)으로 **HTTPS 요청**을 보내는 것. `anthropic` SDK가 이 복잡한 과정을 **함수 한 번**(`client.messages.create(...)`)으로 감싸줘요.
+
+### 1단계 · 준비물 3가지
+1. **API 키** — `console.anthropic.com`에서 발급. `sk-ant-...` 형태의 문자열. **내 신분증 + 결제수단**이라 남에게 노출 금지.
+2. **anthropic 패키지** — 터미널에서 `pip install anthropic python-dotenv`.
+3. **키를 둘 `.env` 파일** — 키를 코드에 직접 박지 않고 파일에 둠. git에는 절대 안 올림(`.gitignore`).
+
+### 2단계 · 키는 어디 두고, 코드가 어떻게 찾나
+- 프로젝트 폴더에 **`.env`** 파일을 만들고 딱 한 줄:
 ```
+ANTHROPIC_API_KEY=sk-ant-여기에_내_키
+```
+- `Anthropic()`을 만들 때 **환경변수 `ANTHROPIC_API_KEY`를 자동으로 읽어요.** 그래서 코드에 키를 안 써도 됩니다.
+- 단, `.env` 파일의 값을 환경변수로 "올려주는" 한 줄이 필요해요 → `load_dotenv()`. (이게 없으면 `.env`는 그냥 텍스트 파일일 뿐.)
 
-### 재료 4개
-1. **model** — 어느 Claude.
-2. **max_tokens** — 답 길이 상한(**필수**). 끊기면 올린다.
-3. **system** — 역할·규칙.
-4. **messages** — 실제 대화. `{"role":"user","content":...}`.
+### 3단계 · 진짜로 돌려보는 1파일 (여기가 핵심)
+폴더 아무 데나 **`hello_claude.py`** 파일 하나를 만들고 아래를 **그대로 복붙**하면 끝이에요.
+```python
+import os
+from dotenv import load_dotenv
+from anthropic import Anthropic
 
-### 꼭 기억
-- 응답은 **블록 리스트** → `resp.content[0].text`.
-- `messages`가 리스트인 이유: stateless → **매번 전체 대화 재전송**.
+load_dotenv()                 # .env의 키를 환경변수로 올림
+client = Anthropic()          # ANTHROPIC_API_KEY 자동 로드
+
+resp = client.messages.create(
+    model="claude-opus-4-8",
+    max_tokens=256,
+    messages=[{"role": "user", "content": "한 문장으로 자기소개 해줘"}],
+)
+print(resp.content[0].text)   # 돌아온 답 출력
+```
+**실행:** 같은 폴더에서 터미널에 →
+```
+python hello_claude.py
+```
+화면에 Claude의 답 한 줄이 찍히면 성공. **이게 "API 콜"의 전부예요.**
+
+### 4단계 · 한 줄씩 — 무슨 일이 일어나나
+1. `import ...` — SDK를 불러옴.
+2. `load_dotenv()` — `.env`의 키를 **메모리(환경변수)**로 올림.
+3. `Anthropic()` — 키를 들고 서버와 통신할 준비가 된 **클라이언트 객체**.
+4. `client.messages.create(...)` — **바로 이 줄에서 실제 인터넷 요청이 나가요.** 코드가 여기서 잠깐 멈추고(서버 기다림) 답이 오면 다음 줄로.
+5. `resp.content[0].text` — 돌아온 답을 꺼냄.
+
+### 5단계 · 주문서의 재료 4개
+1. **model** — 어느 Claude를 쓸지. (`claude-opus-4-8` = 최강·기본 추천.)
+2. **max_tokens** — 답 길이 상한(**필수**). 답이 중간에 끊기면 이 값을 올린다.
+3. **system** — Claude의 역할·규칙(예: `"You are a tax advisor..."`). 선택.
+4. **messages** — 실제 대화. `{"role": "user", "content": "..."}` 리스트.
+
+### 6단계 · 돌아온 응답은 어떻게 생겼나
+- `resp`는 객체이고, `resp.content`는 **블록들의 리스트**예요. 보통 `[TextBlock(text="...")]` 하나 → 그래서 `resp.content[0].text`.
+- **왜 리스트?** 답이 글 + 이미지 + 도구호출처럼 **여러 블록**일 수 있어서. 지금은 글 한 덩어리니 `[0]`만 보면 됨.
+- `messages`도 리스트인 이유: API는 **stateless**(직전 대화를 기억 못 함) → 대화를 이어가려면 **매 요청마다 전체 히스토리를 다시 보냄**.
+
+### 7단계 · 자주 나는 에러 & 해결
+1. **`ModuleNotFoundError: anthropic`** → `pip install anthropic python-dotenv` 안 함.
+2. **401 `authentication_error`** → 키가 틀렸거나 안 읽힘. `.env` 위치 + `load_dotenv()` 호출 + 키 오타 확인.
+3. **답이 중간에 잘림** → `max_tokens`를 올린다. (`resp.stop_reason`이 `"max_tokens"`면 길이 때문.)
+
+### 8단계 · 이걸 "앱"으로 (슬라이드 15·17과 연결)
+위 1파일 실험의 `messages.create(...)` 호출이 **그대로** `backend/app.py`의 `/api/chat` 안으로 들어가요. 딱 하나만 바뀝니다 — **"고정 질문" 대신 프론트가 보낸 질문**(`request.json["message"]`)을 `content`에 넣는 것. 즉 **13번을 이해하면 17번은 거의 다 한 거예요.**
 
 @slide-15
 
