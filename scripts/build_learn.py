@@ -46,7 +46,11 @@ QUIZ_CSS = """
 <style>
   .quiz { background:#0f1620; border:1px solid #30363d; border-radius:10px; padding:1rem 1.2rem; margin:1rem 0 1.5rem; }
   .quiz-review { background:#11271a; border-left:3px solid #3fb950; border-radius:6px; padding:.7rem .9rem; margin-bottom:1rem; line-height:1.6; color:#e6edf3; }
-  .quiz-q { margin:1.1rem 0; }
+  .quiz-q { margin:0; padding:1.4rem 0; }
+  .quiz-q:first-of-type { padding-top:.4rem; }
+  .quiz-q + .quiz-q { border-top:1px solid #30363d; }
+  .quiz-qnum { display:inline-block; font-weight:700; color:#58a6ff; font-size:.8rem;
+    letter-spacing:.06em; margin-bottom:.45rem; }
   .quiz-question { margin:0 0 .6rem; }
   .quiz-question .q-en { display:block; font-weight:700; color:#e6edf3; }
   .quiz-question .q-ko { display:block; color:#8b949e; font-size:.92rem; margin-top:.15rem; }
@@ -134,8 +138,9 @@ def render_quiz(quiz):
     if quiz.get("review"):
         parts.append('<div class="quiz-review">🧠 <b>잠깐 복습</b><br>%s</div>'
                      % html_lib.escape(quiz["review"]))
-    for q in quiz["questions"]:
+    for n, q in enumerate(quiz["questions"], start=1):
         parts.append('<div class="quiz-q">')
+        parts.append('<div class="quiz-qnum">Q%d</div>' % n)
         parts.append('<p class="quiz-question"><span class="q-en">%s</span>'
                      '<span class="q-ko">%s</span></p>'
                      % (html_lib.escape(q["en"]), html_lib.escape(q["ko"])))

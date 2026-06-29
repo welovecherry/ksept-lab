@@ -175,9 +175,9 @@ def build_module(slug, title, subtitle, index, total):
         f'<li><a href="#{sid}">{html_mod.escape(text)}</a></li>' for sid, text in toc
     )
     nav_links = []
-    for s, t, _ in MODULES:
+    for i, (s, t, _) in enumerate(MODULES, start=1):
         cls = ' class="active"' if s == slug else ""
-        nav_links.append(f'<a href="{s}.html"{cls}>{html_mod.escape(t)}</a>')
+        nav_links.append(f'<a href="{s}.html"{cls}>{i:02d} · {html_mod.escape(t)}</a>')
     nav_html = "".join(nav_links)
 
     page_html = PAGE_TMPL.format(
@@ -208,7 +208,8 @@ def build_landing(counts):
             f'<div class="m-meta">슬라이드 {n}개</div></a>'
         )
     nav_html = "".join(
-        f'<a href="{s}.html">{html_mod.escape(t)}</a>' for s, t, _ in MODULES
+        f'<a href="{s}.html">{i:02d} · {html_mod.escape(t)}</a>'
+        for i, (s, t, _) in enumerate(MODULES, start=1)
     )
     page_html = LANDING_TMPL.format(
         nav=nav_html, cards=cards, total=sum(counts), src=BASE
@@ -229,7 +230,7 @@ PAGE_TMPL = """<!doctype html>
   <aside class="sidebar">
     <div class="side-title"><a href="../index.html">📒 ksept-lab</a></div>
     <div class="side-group">📚 튜토리얼</div>
-    <nav><a href="index.html">개요</a>{nav}</nav>
+    <nav><a href="index.html">00 · 개요</a>{nav}</nav>
     <div class="side-foot">출처: ksetp.netlify.app<br>로컬 생성 후 커밋</div>
   </aside>
   <div class="wrap">
@@ -259,7 +260,7 @@ LANDING_TMPL = """<!doctype html>
   <aside class="sidebar">
     <div class="side-title"><a href="../index.html">📒 ksept-lab</a></div>
     <div class="side-group">📚 튜토리얼</div>
-    <nav><a href="index.html" class="active">개요</a>{nav}</nav>
+    <nav><a href="index.html" class="active">00 · 개요</a>{nav}</nav>
     <div class="side-foot">출처: ksetp.netlify.app</div>
   </aside>
   <div class="wrap">
