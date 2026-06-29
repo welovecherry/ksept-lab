@@ -1,0 +1,48 @@
+name: Build & deploy devlog (Pages)
+
+# main에 push될 때마다 git log를 읽어 docs/index.html을 생성하고 Pages로 배포한다.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # Actions 탭에서 수동 실행도 가능
+
+# GitHub Pages 배포에 필요한 최소 권한
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 동시에 여러 배포가 겹치지 않도록(최신 것만)
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 전체 커밋 이력을 받아야 git log가 모든 커밋을 본다
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Generate docs/index.html from git log
+        run: python3 scripts/build_docs.py
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
