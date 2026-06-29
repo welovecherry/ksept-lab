@@ -90,12 +90,24 @@ STYLE = """
   .sidebar .modnav > a { color:#e6edf3; text-decoration:none; padding:.35rem .5rem;
     border-radius:6px; font-size:.92rem; }
   .sidebar .modnav > a:hover { background:#1f2530; }
-  .sidebar .modnav > a.active { color:#58a6ff; font-weight:700; }
-  .sidebar .slidenav { display:flex; flex-direction:column;
-    border-left:1px solid #30363d; margin:.15rem 0 .5rem .65rem; padding-left:.4rem; }
-  .sidebar .slidenav > a { color:#8b949e; text-decoration:none; padding:.18rem .4rem;
+  /* 현재 모듈 = 부모. 아래 슬라이드 목록과 한 덩어리로 읽히게 강조. */
+  .sidebar .modnav > a.active { color:#58a6ff; font-weight:700;
+    background:#1f6feb22; border:1px solid #1f6feb55; border-bottom-left-radius:0;
+    border-bottom-right-radius:0; }
+  /* 슬라이드 = 자식. 들여쓰기 + 파란 세로선 + 살짝 들어간 패널. */
+  .sidebar .slidenav { display:flex; flex-direction:column; gap:.05rem;
+    margin:0 0 .6rem .15rem; padding:.3rem 0 .35rem .55rem; background:#0d1117;
+    border:1px solid #1f6feb33; border-top:none; border-left:2px solid #1f6feb88;
+    border-bottom-left-radius:6px; border-bottom-right-radius:6px; }
+  .sidebar .slidenav-cap { color:#6e7681; font-size:.68rem; font-weight:700;
+    text-transform:uppercase; letter-spacing:.06em; padding:.25rem .5rem .3rem; }
+  .sidebar .slidenav > a { display:flex; gap:.45rem; align-items:baseline;
+    color:#8b949e; text-decoration:none; padding:.2rem .5rem;
     border-radius:5px; font-size:.8rem; line-height:1.35; }
   .sidebar .slidenav > a:hover { background:#1f2530; color:#58a6ff; }
+  .sidebar .slidenav > a .sn { flex:0 0 auto; min-width:1.5em; text-align:right;
+    color:#58a6ff; font-variant-numeric:tabular-nums; font-weight:700; }
+  .sidebar .slidenav > a .st { flex:1 1 auto; }
   .sidebar .side-foot a { color:#58a6ff; text-decoration:none; }
 </style>
 """
@@ -299,6 +311,7 @@ def extract_slides(html):
     for m in re.finditer(r'<h2 id="slide-(\d+)">(.*?)</h2>', html, re.S):
         title = re.sub(r"<[^>]+>", "", m.group(2))      # 태그 제거
         title = re.sub(r"\s*#\s*$", "", title).strip()  # 앵커 '#' 제거
+        title = re.sub(r"^\s*\d+\.\s*", "", title)       # 원본 앞번호 제거(번호 중복 방지)
         out.append((m.group(1), title))
     return out
 
@@ -314,8 +327,11 @@ def build_sidebar(current, slides):
         p.append(f'<a href="{fn}.html"{active}>{html_lib.escape(label)}</a>')
         if fn == current and slides:
             p.append('<div class="slidenav">')
+            p.append('<div class="slidenav-cap">이 모듈의 슬라이드</div>')
             for sn, st in slides:
-                p.append(f'<a href="#slide-{sn}">{sn}. {html_lib.escape(st)}</a>')
+                p.append(f'<a href="#slide-{sn}">'
+                         f'<span class="sn">{sn}</span>'
+                         f'<span class="st">{html_lib.escape(st)}</span></a>')
             p.append('</div>')
     p.append('</nav>')
     p.append(f'<div class="side-foot"><a href="../tutorial/{current}.html">📖 원본 보관소</a>'
