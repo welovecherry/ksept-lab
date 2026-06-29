@@ -98,6 +98,33 @@ QUIZ_JS = """
 </script>
 """
 
+# 상단 탭(학습본 / 내 작업일지) 스타일 + 동작 (모든 학습본에 주입)
+TAB_CSS = """
+<style>
+  .tabbar { position: sticky; top: 0; z-index: 5; display: flex; gap: .4rem;
+    background: #0d1117; padding: .6rem 0; margin-bottom: 1rem; border-bottom: 1px solid #30363d; }
+  .tab-btn { background: #161b22; color: #8b949e; border: 1px solid #30363d;
+    border-radius: 8px; padding: .45rem 1rem; font: inherit; cursor: pointer; }
+  .tab-btn:hover { color: #e6edf3; border-color: #58a6ff; }
+  .tab-btn.active { color: #0d1117; background: #58a6ff; border-color: #58a6ff; font-weight: 700; }
+  .tab-panel.is-hidden { display: none; }
+</style>
+"""
+
+TAB_JS = """
+<script>
+(function(){
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('.tab-btn'); if(!btn) return;
+    var target = btn.getAttribute('data-target');
+    btn.parentNode.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.toggle('active', b===btn); });
+    document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.toggle('is-hidden', p.id !== target); });
+    window.scrollTo(0, 0);
+  });
+})();
+</script>
+"""
+
 _LETTERS = "ABCDEFGH"
 
 
@@ -246,34 +273,43 @@ def build_page(tut_path):
         )
 
     note_block = (
-        '\n    <section class="mynote">\n'
+        '\n    <section class="mynote" id="mynote">\n'
         '      <h2>📝 내 작업일지 <span class="learn-badge">내가 작성</span></h2>\n'
         f'      {notes_html}\n'
         '    </section>\n'
     )
-
-    # 원본의 푸터(<hr> + 출처) 바로 앞에 노트 삽입. 없으면 </body> 앞에.
-    anchor = html.rfind("<hr>")
-    if anchor != -1 and "출처" in html[anchor:]:
-        html = html[:anchor] + note_block + "    " + html[anchor:]
-    else:
-        html = html.replace("</body>", note_block + "</body>")
 
     # docs/learn/ 에서 ../tutorial 의 정적 자원을 참조하도록 경로 보정
     html = html.replace('href="style.css"', 'href="../tutorial/style.css"')
     html = html.replace('src="assets/', 'src="../tutorial/assets/')
     html = html.replace('href="assets/', 'href="../tutorial/assets/')
 
-    # 노트 스타일 주입 (한 번) + 퀴즈가 있으면 퀴즈 스타일/동작도 주입
-    head_inject = NOTE_CSS + (QUIZ_CSS if has_quiz else "")
-    html = html.replace("</head>", head_inject + "</head>", 1)
-    if has_quiz:
-        html = html.replace("</body>", QUIZ_JS + "</body>", 1)
-
-    # 본문 맨 위에 '학습본(읽기 전용)' 배너
+    # ── 탭 구조로 감싸기 (JS 주입 전에! 끝부분 </div></div></body>가 깨끗할 때) ──
     banner = ('<div class="readonly-banner">📖 <b>학습본</b> — 원본 튜토리얼(읽기 전용). '
-              '내가 정리한 메모는 맨 아래 <b>📝 내 작업일지</b>에 있어요.</div>')
-    html = html.replace('<div class="wrap">', '<div class="wrap">\n    ' + banner, 1)
+              '메모는 위 <b>📝 내 작업일지</b> 탭에 있어요.</div>')
+    tabbar = ('<div class="tabbar">'
+              '<button class="tab-btn active" data-target="panel-learn">📖 학습본</button>'
+              '<button class="tab-btn" data-target="panel-notes">📝 내 작업일지</button>'
+              '</div>')
+    # 1) wrap 시작 직후: 탭바 + 학습본 패널 열기 + 배너
+    html = html.replace(
+        '<div class="wrap">',
+        '<div class="wrap">\n  ' + tabbar + '\n  <div class="tab-panel" id="panel-learn">\n    ' + banner,
+        1,
+    )
+    # 2) wrap 끝(</div></div></body>) 직전: 학습본 패널 닫고, 작업일지 패널(노트) 추가
+    tail = ('\n  </div><!--/panel-learn-->\n'
+            '  <div class="tab-panel is-hidden" id="panel-notes">' + note_block +
+            '  </div><!--/panel-notes-->')
+    html, n = re.subn(r'</div>(\s*</div>\s*</body>)', tail + r'\n  </div>\1', html, count=1)
+    if n == 0:  # 예상 구조가 아니면 탭 없이 노트만 덧붙임(안전망)
+        html = html.replace('</body>', note_block + '</body>', 1)
+
+    # 스타일/동작 주입: 노트 + 탭 (+ 퀴즈가 있으면 퀴즈)
+    head_inject = NOTE_CSS + TAB_CSS + (QUIZ_CSS if has_quiz else "")
+    html = html.replace("</head>", head_inject + "</head>", 1)
+    body_inject = TAB_JS + (QUIZ_JS if has_quiz else "")
+    html = html.replace("</body>", body_inject + "</body>", 1)
 
     return module, html
 
