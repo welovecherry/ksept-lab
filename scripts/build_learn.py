@@ -32,6 +32,9 @@ NOTE_CSS = """
   .mynote-empty { color: #8b949e; font-style: italic; }
   .learn-badge { display:inline-block; background:#3fb95022; color:#3fb950;
     border:1px solid #3fb95066; border-radius:999px; padding:.05rem .5rem; font-size:.75rem; margin-left:.4rem; }
+  .readonly-banner { background:#1f2530; border:1px solid #30363d; border-radius:8px;
+    padding:.6rem .9rem; margin:0 0 1.2rem; font-size:.9rem; color:#8b949e; }
+  .readonly-banner b { color:#58a6ff; }
 </style>
 """
 
@@ -131,7 +134,7 @@ def build_page(tut_path):
 
     note_block = (
         '\n    <section class="mynote">\n'
-        '      <h2>📝 내 학습 노트 <span class="learn-badge">my notes</span></h2>\n'
+        '      <h2>📝 내 작업일지 <span class="learn-badge">내가 작성</span></h2>\n'
         f'      {notes_html}\n'
         '    </section>\n'
     )
@@ -150,6 +153,11 @@ def build_page(tut_path):
 
     # 노트 스타일 주입 (한 번)
     html = html.replace("</head>", NOTE_CSS + "</head>", 1)
+
+    # 본문 맨 위에 '학습본(읽기 전용)' 배너
+    banner = ('<div class="readonly-banner">📖 <b>학습본</b> — 원본 튜토리얼(읽기 전용). '
+              '내가 정리한 메모는 맨 아래 <b>📝 내 작업일지</b>에 있어요.</div>')
+    html = html.replace('<div class="wrap">', '<div class="wrap">\n    ' + banner, 1)
 
     return module, html
 
