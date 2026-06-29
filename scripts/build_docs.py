@@ -20,6 +20,10 @@ OUT = ROOT / "docs" / "index.html"
 # 레코드 구분자: 커밋 필드는 \x1f, 커밋 간은 \x1e 로 나눈다(공백/줄바꿈 충돌 방지).
 GIT_FORMAT = "%H%x1f%h%x1f%an%x1f%ad%x1f%s%x1f%b%x1e"
 
+# 작업일지에서 펼쳐 보일 최근 커밋 수. 이 수를 넘는 옛 커밋은 <details>로 접는다.
+# (날짜 그룹은 통째로 유지하므로 실제로는 이 값 근처에서 잘린다.)
+RECENT_LIMIT = 20
+
 
 def get_commits():
     """git log를 파싱해 커밋 dict 리스트(최신순)를 돌려준다."""
@@ -73,9 +77,52 @@ def render_commit(c):
     </li>"""
 
 
+def group_by_date(commits):
+    """커밋(최신순)을 날짜별로 묶는다. -> [(날짜, [커밋, ...]), ...]"""
+    groups = []
+    for c in commits:
+        day = c["date"].split(" ")[0] or "(unknown)"
+        if not groups or groups[-1][0] != day:
+            groups.append((day, []))
+        groups[-1][1].append(c)
+    return groups
+
+
+def render_date_group(date, commits):
+    """날짜 헤더 + 그 날의 커밋 타임라인 한 덩어리."""
+    items = "\n".join(render_commit(c) for c in commits)
+    return f"""
+    <section class="date-group">
+      <h3 class="date">{html.escape(date)}</h3>
+      <ul class="timeline">{items}</ul>
+    </section>"""
+
+
+def render_timeline(commits):
+    """최근 RECENT_LIMIT개는 펼쳐서, 더 오래된 날짜 그룹은 <details>로 접어서 렌더."""
+    recent, older = [], []
+    shown = older_count = 0
+    for day, cs in group_by_date(commits):
+        block = render_date_group(day, cs)
+        if shown < RECENT_LIMIT:
+            recent.append(block)
+            shown += len(cs)
+        else:
+            older.append(block)
+            older_count += len(cs)
+    out = "\n".join(recent)
+    if older:
+        out += f"""
+    <details class="older">
+      <summary>이전 이력 {older_count}개 펼치기 ▸</summary>
+      {''.join(older)}
+    </details>"""
+    return out
+
+
 def build():
     commits = get_commits()
-    timeline = "\n".join(render_commit(c) for c in commits)
+    timeline = render_timeline(commits)
     last_updated = commits[0]["date"] if commits else "(아직 커밋 없음)"
     count = len(commits)
 
@@ -148,6 +195,14 @@ PAGE_TEMPLATE = r"""<!doctype html>
     .badge {{ display: inline-block; background: #1f6feb22; color: var(--accent);
       border: 1px solid #1f6feb55; border-radius: 999px; padding: .1rem .6rem; font-size: .8rem; }}
     a {{ color: var(--accent); }}
+
+    /* 날짜 그룹 헤더 + '이전 이력' 접기 */
+    .date-group {{ margin: .25rem 0; }}
+    h3.date {{ color: var(--muted); font-size: .85rem; font-weight: 700; margin: 1.5rem 0 .25rem; letter-spacing: .02em; }}
+    details.older {{ margin-top: 1.5rem; border-top: 1px dashed var(--border); padding-top: .5rem; }}
+    details.older > summary {{ cursor: pointer; color: var(--accent); padding: .5rem 0; list-style: none; font-size: .95rem; }}
+    details.older > summary::-webkit-details-marker {{ display: none; }}
+    details.older[open] > summary {{ margin-bottom: .5rem; }}
   </style>
 </head>
 <body>
@@ -248,9 +303,9 @@ flowchart LR
     </div>
 
     <h2>작업일지 (git log)</h2>
-    <ul class="timeline">
+    <div class="timeline-wrap">
 {timeline}
-    </ul>
+    </div>
 
     <p class="note" style="margin-top:2rem">
       소스: <a href="https://github.com/welovecherry/ksept-lab">github.com/welovecherry/ksept-lab</a>
