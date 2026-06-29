@@ -92,26 +92,69 @@ def localize_images(html_str, slug):
     return re.sub(r'src="([^"]+)"', repl, html_str)
 
 
+def strip_tags(s):
+    return re.sub(r"<[^>]+>", "", s)
+
+
+# font-size를 가진 "잎(leaf)" 블록(div/p, 내부에 또 다른 div/p 없음)만 잡는다.
+# 원본 슬라이드는 글자 크기로만 위계를 표현하므로, 이를 의미적 태그로 번역한다.
+LEAF_RE = re.compile(
+    r"<(div|p)\b[^>]*?font-size:\s*(\d+)px[^>]*>((?:(?!</?(?:div|p)\b).)*?)</\1>",
+    re.S,
+)
+
+
+def restructure(inner, module_title):
+    """슬라이드 한 장의 HTML을 (제목, 본문HTML)로 재구조화.
+
+    - 가장 큰 글자 = 슬라이드 제목 → 본문에서 빼고 h2로 승격
+    - 26px 이상 = 소제목 → <h3>
+    - 'MODULE n' / 모듈명 반복 눈썹(대문자) = 중복이라 제거
+    - 그 외 = 문단 <p>
+    내용 텍스트는 그대로 두고 '태그'만 바꾼다.
+    """
+    title = ""
+    max_fs = -1
+    for m in LEAF_RE.finditer(inner):
+        fs, txt = int(m.group(2)), strip_tags(m.group(3)).strip()
+        if txt and fs > max_fs:
+            max_fs, title = fs, html_mod.unescape(txt)
+
+    removed_title = [False]
+
+    def _map(m):
+        fs, block, children = int(m.group(2)), m.group(0), m.group(3)
+        txt = html_mod.unescape(strip_tags(children)).strip()
+        if not txt:
+            return ""
+        if not removed_title[0] and fs == max_fs and txt == title:
+            removed_title[0] = True  # 제목은 h2로 빠지므로 본문에서 제거(1회)
+            return ""
+        upper = "text-transform: uppercase" in block
+        if upper and (txt == module_title or re.match(r"^MODULE\s+\d+$", txt)):
+            return ""  # 모듈명/‘MODULE n’ 반복 눈썹 제거
+        if fs >= 26:
+            return f"<h3>{children}</h3>"
+        return f"<p>{children}</p>"
+
+    return title, LEAF_RE.sub(_map, inner)
+
+
 def build_module(slug, title, subtitle, index, total):
     page = fetch_text(f"{BASE}/{slug}")
     sections = split_sections(page)
-    eyebrow = title  # 본문 첫 줄이 모듈명 반복이면 제거하기 위한 비교값
 
     md_parts = []
     for i, sec in enumerate(sections, start=1):
         label = data_label(sec)
-        # <section> 래퍼를 벗기고 인라인 style을 제거(다크 테마와 충돌·leak 방지)
+        # <section> 래퍼를 벗기고, 글자 크기 위계를 의미 태그로 번역
         inner = re.sub(r"^<section\b[^>]*>", "", sec).rsplit("</section>", 1)[0]
+        heading, inner = restructure(inner, title)
+        heading = heading or label  # 큰 글자 못 찾으면 data-label로 폴백
+        # 남은 인라인 style 제거(다크 테마 충돌·leak 방지) 후 markdown 변환
         inner = re.sub(r'\sstyle="[^"]*"', "", inner)
         body = pandoc(inner, "html", "gfm").strip()
-        # 슬라이드 본문 첫 줄이 모듈명(eyebrow) 그대로면 중복이라 제거
-        lines = body.split("\n")
-        while lines and not lines[0].strip():
-            lines.pop(0)
-        if lines and lines[0].strip() == eyebrow:
-            lines.pop(0)
-        body = "\n".join(lines).strip()
-        md_parts.append(f"## {i}. {label}\n\n{body}\n")
+        md_parts.append(f"## {i}. {heading}\n\n{body}\n")
 
     body_html = pandoc("\n\n".join(md_parts), "gfm", "html5")
 

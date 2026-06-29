@@ -18,61 +18,25 @@
     <h1>Context Management</h1>
     <p class="sub">Module 4/7 · 슬라이드 19개 · <a href="https://ksetp.netlify.app/context" target="_blank" rel="noopener">원본 슬라이드 ↗</a></p>
     <p class="sub">임베딩, 벡터 DB, RAG, 대화 메모리, 청킹</p>
-    <details class="toc"><summary>이 모듈의 슬라이드 19개</summary><ol><li><a href="#slide-1">1. Context Management</a></li><li><a href="#slide-2">2. Live demo</a></li><li><a href="#slide-3">3. What that app had to solve</a></li><li><a href="#slide-4">4. Module organisation</a></li><li><a href="#slide-5">5. Indexing · Lecture</a></li><li><a href="#slide-6">6. The pipeline</a></li><li><a href="#slide-7">7. Embedding models</a></li><li><a href="#slide-8">8. Chunking</a></li><li><a href="#slide-9">9. Embeddings</a></li><li><a href="#slide-10">10. Vector stores</a></li><li><a href="#slide-11">11. Production gotchas</a></li><li><a href="#slide-12">12. RAG · Lecture</a></li><li><a href="#slide-13">13. RAG in 30 lines</a></li><li><a href="#slide-14">14. The retrieval traps</a></li><li><a href="#slide-15">15. Context assembly</a></li><li><a href="#slide-16">16. Citations</a></li><li><a href="#slide-17">17. Single-turn vs agentic RAG</a></li><li><a href="#slide-18">18. Project</a></li><li><a href="#slide-19">19. Index a corpus + add RAG</a></li></ol></details>
+    <details class="toc"><summary>이 모듈의 슬라이드 19개</summary><ol><li><a href="#slide-1">1. Context Management</a></li><li><a href="#slide-2">2. Live demo</a></li><li><a href="#slide-3">3. What that app had to solve</a></li><li><a href="#slide-4">4. How this module is organised</a></li><li><a href="#slide-5">5. Indexing</a></li><li><a href="#slide-6">6. The pipeline</a></li><li><a href="#slide-7">7. What is an embedding model?</a></li><li><a href="#slide-8">8. Chunking is a design decision</a></li><li><a href="#slide-9">9. Embeddings</a></li><li><a href="#slide-10">10. Vector stores</a></li><li><a href="#slide-11">11. Production considerations</a></li><li><a href="#slide-12">12. RAG</a></li><li><a href="#slide-13">13. RAG in 30 lines</a></li><li><a href="#slide-14">14. The retrieval failures</a></li><li><a href="#slide-15">15. Context assembly</a></li><li><a href="#slide-16">16. Citations — why and how</a></li><li><a href="#slide-17">17. Single-turn RAG vs agentic RAG</a></li><li><a href="#slide-18">18. Project</a></li><li><a href="#slide-19">19. Index a corpus, then add RAG to your chat app</a></li></ol></details>
 <h2 id="slide-1">1. Context Management <a class="anchor" href="#slide-1">#</a></h2>
-<div>
-
 <p>Module 4 · Day Four</p>
-</div>
-
 <div>
 
 </div>
 
-<div>
-
-<p>Context Management</p>
-</div>
-
-<div>
-
-<p>Demo · Indexing · RAG · Project</p>
-</div>
-
+<h3 id="demo--indexing--rag--project">Demo · Indexing · RAG · Project</h3>
 <p><img src="assets/context-context_management.png" alt="Context management: indexed sources feeding a retrieval-augmented chat" /></p>
 <h2 id="slide-2">2. Live demo <a class="anchor" href="#slide-2">#</a></h2>
 <div>
 
-<p>Context Management</p>
 </div>
 
-<div>
-
-</div>
-
-<div>
-
-<p>Live demo</p>
-</div>
-
-<div>
-
-<p>Solutions Manager — indexed Drive content + cited chat (aeiplatform)</p>
-</div>
-
+<h3 id="solutions-manager--indexed-drive-content--cited-chat-aeiplatform">Solutions Manager — indexed Drive content + cited chat (aeiplatform)</h3>
 <h2 id="slide-3">3. What that app had to solve <a class="anchor" href="#slide-3">#</a></h2>
 <div>
 
-<div>
-
 <p>From the demo</p>
-</div>
-
-<div>
-
-<p>What that app had to solve</p>
-</div>
-
 <p>The demo showed natural-language questions producing answers cited inline to Google Drive sources, across many companies and many documents. Behind that, two distinct sets of challenges:</p>
 </div>
 
@@ -80,11 +44,7 @@
 
 <div>
 
-<div>
-
-<p>Indexing challenges</p>
-</div>
-
+<h3 id="indexing-challenges">Indexing challenges</h3>
 <ul>
 <li><strong>Many formats</strong> — docs, sheets, slides, PDFs — each needs text extraction</li>
 <li><strong>Chunking decisions</strong> — size and overlap choices govern retrieval quality forever after</li>
@@ -96,11 +56,7 @@
 
 <div>
 
-<div>
-
-<p>RAG challenges</p>
-</div>
-
+<h3 id="rag-challenges">RAG challenges</h3>
 <ul>
 <li><strong>Context budget</strong> — typical 50–80K tokens of context, spread across many sources</li>
 <li><strong>Coverage</strong> — cross-cutting queries ("list all X") must see every source, not just the loudest</li>
@@ -113,19 +69,10 @@
 </div>
 
 <p>These are this module's topics — taught with the smallest possible snippets, then practiced in the project.</p>
-<h2 id="slide-4">4. Module organisation <a class="anchor" href="#slide-4">#</a></h2>
-<div>
-
+<h2 id="slide-4">4. How this module is organised <a class="anchor" href="#slide-4">#</a></h2>
 <div>
 
 <p>Overview</p>
-</div>
-
-<div>
-
-<p>How this module is organised</p>
-</div>
-
 <p>Two halves. Lecture in each, one combined project at the end.</p>
 </div>
 
@@ -133,31 +80,15 @@
 
 <div>
 
-<div>
-
 <p>Half 1</p>
-</div>
-
-<div>
-
-<p>Indexing</p>
-</div>
-
+<h3 id="indexing">Indexing</h3>
 <p>Turn unstructured documents into a searchable vector index. Chunking, embeddings, vector stores, batch economics.</p>
 </div>
 
 <div>
 
-<div>
-
 <p>Half 2</p>
-</div>
-
-<div>
-
-<p>RAG</p>
-</div>
-
+<h3 id="rag">RAG</h3>
 <p>Use that index to answer questions with citations. Retrieval budgets, context assembly, query rewrite, presentation.</p>
 </div>
 
@@ -180,29 +111,13 @@
 
 </div>
 
-<h2 id="slide-5">5. Indexing · Lecture <a class="anchor" href="#slide-5">#</a></h2>
-<div>
-
-<p>Context Management</p>
-</div>
-
+<h2 id="slide-5">5. Indexing <a class="anchor" href="#slide-5">#</a></h2>
 <div>
 
 </div>
 
-<div>
-
-<p>Indexing</p>
-</div>
-
-<div>
-
-<p>Documents → chunks → vectors → store</p>
-</div>
-
+<h3 id="documents--chunks--vectors--store">Documents → chunks → vectors → store</h3>
 <h2 id="slide-6">6. The pipeline <a class="anchor" href="#slide-6">#</a></h2>
-<div>
-
 <div>
 
 <p>Indexing · Lecture</p>
@@ -210,102 +125,41 @@
 
 <div>
 
-<p>The pipeline</p>
-</div>
-
-</div>
-
 <div>
 
-<div>
-
-<div>
-
-<p>Source</p>
-</div>
-
-<div>
-
+<h3 id="source">Source</h3>
 <p>PDFs, docs,<br />
 sheets, slides</p>
 </div>
 
-</div>
-
+<h3>→</h3>
 <div>
 
-<p>→</p>
-</div>
-
-<div>
-
-<div>
-
-<p>Extract</p>
-</div>
-
-<div>
-
+<h3 id="extract">Extract</h3>
 <p>text per file<br />
 (MIME-aware)</p>
 </div>
 
-</div>
-
+<h3 id="-1">→</h3>
 <div>
 
-<p>→</p>
-</div>
-
-<div>
-
-<div>
-
-<p>Chunk</p>
-</div>
-
-<div>
-
+<h3 id="chunk">Chunk</h3>
 <p>N-char windows<br />
 with overlap</p>
 </div>
 
-</div>
-
+<h3 id="-2">→</h3>
 <div>
 
-<p>→</p>
-</div>
-
-<div>
-
-<div>
-
-<p>Embed</p>
-</div>
-
-<div>
-
+<h3 id="embed">Embed</h3>
 <p>vector per chunk<br />
 (batched API)</p>
 </div>
 
-</div>
-
+<h3 id="-3">→</h3>
 <div>
 
-<p>→</p>
-</div>
-
-<div>
-
-<div>
-
-<p>Store</p>
-</div>
-
-<div>
-
+<h3 id="store">Store</h3>
 <p>(chunk, vec, meta)\</p>
 <ul>
 <li>ANN index</li>
@@ -314,23 +168,12 @@ with overlap</p>
 
 </div>
 
-</div>
-
-<p>Each stage has a separate failure mode. Each stage has a separate cost model. Most production RAG problems trace back to a choice made in <em>one of these five boxes</em>.</p>
+<h3 id="each-stage-has-a-separate-failure-mode-each-stage-has-a-separate-cost-model-most-production-rag-problems-trace-back-to-a-choice-made-in-one-of-these-five-boxes">Each stage has a separate failure mode. Each stage has a separate cost model. Most production RAG problems trace back to a choice made in <em>one of these five boxes</em>.</h3>
 <p><strong>Idempotency rule</strong>: re-indexing one document must not duplicate or leak old chunks. Delete-then-insert is the simplest correct pattern.</p>
-<h2 id="slide-7">7. Embedding models <a class="anchor" href="#slide-7">#</a></h2>
-<div>
-
+<h2 id="slide-7">7. What is an embedding model? <a class="anchor" href="#slide-7">#</a></h2>
 <div>
 
 <p>Indexing · Lecture · Primer</p>
-</div>
-
-<div>
-
-<p>What is an embedding model?</p>
-</div>
-
 <p>A model that turns a piece of text into a fixed-length list of numbers — a <strong>vector</strong> — so that meaning becomes geometry. Similar meanings land near each other; different meanings land far apart.</p>
 </div>
 
@@ -338,54 +181,22 @@ with overlap</p>
 
 <div>
 
-<div>
-
 <p>“the cat sat on the mat”</p>
-</div>
-
-<div>
-
 <p>“a feline rested on a rug”</p>
-</div>
-
-<div>
-
 <p>“Python is a programming language”</p>
 </div>
 
-</div>
-
-<div>
-
-<p>→</p>
-</div>
-
-<div>
-
+<h3 id="-4">→</h3>
 <div>
 
 <p>Embedding model</p>
-</div>
-
-<div>
-
 <p>text → 768 floats</p>
 </div>
 
-</div>
-
-<div>
-
-<p>→</p>
-</div>
-
-<div>
-
+<h3 id="-5">→</h3>
 <div>
 
 <p>Vector space</p>
-</div>
-
 <div>
 
 </div>
@@ -397,21 +208,13 @@ with overlap</p>
 <div>
 
 </div>
-
-<div>
 
 <p>near = similar meaning</p>
-</div>
-
 <div>
 
 </div>
-
-<div>
 
 <p>far = different meaning</p>
-</div>
-
 </div>
 
 </div>
@@ -424,41 +227,16 @@ with overlap</p>
 <li><strong>Closeness = cosine</strong> — similarity is the angle between two vectors; that single number drives retrieval.</li>
 </ul>
 <p><a href="https://projector.tensorflow.org" target="_blank" rel="noopener"></a></p>
-<div>
-
 <p>Play with it →</p>
-</div>
-
-<div>
-
 <p>TensorFlow Embedding Projector</p>
-</div>
-
-<div>
-
 <p>Explore real high-dimensional embeddings in 3D — spin the cloud, search a word, watch neighbours light up.</p>
-</div>
-
-<div>
-
 <p>projector.tensorflow.org</p>
 </div>
 
-</div>
-
-<h2 id="slide-8">8. Chunking <a class="anchor" href="#slide-8">#</a></h2>
-<div>
-
+<h2 id="slide-8">8. Chunking is a design decision <a class="anchor" href="#slide-8">#</a></h2>
 <div>
 
 <p>Indexing · Lecture</p>
-</div>
-
-<div>
-
-<p>Chunking is a design decision</p>
-</div>
-
 </div>
 
 <div>
@@ -525,16 +303,7 @@ with overlap</p>
 <h2 id="slide-9">9. Embeddings <a class="anchor" href="#slide-9">#</a></h2>
 <div>
 
-<div>
-
 <p>Indexing · Lecture</p>
-</div>
-
-<div>
-
-<p>Embeddings</p>
-</div>
-
 <p>An embedding is a fixed-length numeric vector. Semantically similar text lands near each other in vector space.</p>
 </div>
 
@@ -555,16 +324,7 @@ with overlap</p>
 <h2 id="slide-10">10. Vector stores <a class="anchor" href="#slide-10">#</a></h2>
 <div>
 
-<div>
-
 <p>Indexing · Lecture</p>
-</div>
-
-<div>
-
-<p>Vector stores</p>
-</div>
-
 </div>
 
 <div>
@@ -627,9 +387,7 @@ with overlap</p>
 
 </div>
 
-<h2 id="slide-11">11. Production gotchas <a class="anchor" href="#slide-11">#</a></h2>
-<div>
-
+<h2 id="slide-11">11. Production considerations <a class="anchor" href="#slide-11">#</a></h2>
 <div>
 
 <p>Indexing · Lecture</p>
@@ -637,20 +395,9 @@ with overlap</p>
 
 <div>
 
-<p>Production considerations</p>
-</div>
-
-</div>
-
 <div>
 
-<div>
-
-<div>
-
-<p>Batch economics</p>
-</div>
-
+<h3 id="batch-economics">Batch economics</h3>
 <ul>
 <li>Most embedders have hard per-request caps (Vertex: 250 inputs and 20K tokens — whichever hits first)</li>
 <li>Non-Latin scripts tokenize denser — char-based estimators undercount</li>
@@ -660,11 +407,7 @@ with overlap</p>
 
 <div>
 
-<div>
-
-<p>Operational</p>
-</div>
-
+<h3 id="operational">Operational</h3>
 <ul>
 <li>Re-indexing burns money — don't accidentally re-embed on every deploy</li>
 <li>Track per-doc status (fetching / extracting / embedding / indexed / failed) — one bad PDF can't kill the whole run</li>
@@ -676,39 +419,16 @@ with overlap</p>
 </div>
 
 <p>RAG saves context, but err on the side to much retrieval</p>
-<h2 id="slide-12">12. RAG · Lecture <a class="anchor" href="#slide-12">#</a></h2>
-<div>
-
-<p>Context Management</p>
-</div>
-
+<h2 id="slide-12">12. RAG <a class="anchor" href="#slide-12">#</a></h2>
 <div>
 
 </div>
 
-<div>
-
-<p>RAG</p>
-</div>
-
-<div>
-
-<p>Retrieve · Augment · Generate (with citations)</p>
-</div>
-
+<h3 id="retrieve--augment--generate-with-citations">Retrieve · Augment · Generate (with citations)</h3>
 <h2 id="slide-13">13. RAG in 30 lines <a class="anchor" href="#slide-13">#</a></h2>
 <div>
 
-<div>
-
 <p>RAG · Lecture</p>
-</div>
-
-<div>
-
-<p>RAG in 30 lines</p>
-</div>
-
 </div>
 
 <pre><code># 1. RETRIEVE — embed the query, find top-K nearest chunks
@@ -732,9 +452,7 @@ answer = client.messages.create(
     messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: user_prompt}],
 ).content[0].text</code></pre>
 <p>Quiz: What could go wong?</p>
-<h2 id="slide-14">14. The retrieval traps <a class="anchor" href="#slide-14">#</a></h2>
-<div>
-
+<h2 id="slide-14">14. The retrieval failures <a class="anchor" href="#slide-14">#</a></h2>
 <div>
 
 <p>RAG · Lecture</p>
@@ -742,53 +460,30 @@ answer = client.messages.create(
 
 <div>
 
-<p>The retrieval failures</p>
-</div>
-
-</div>
-
-<div>
-
-<div>
-
 <div>
 
 <p>Insufficient diversity</p>
-</div>
-
 <p>One verbose document dominates top-K. Other relevant docs never make it. Cross-cutting queries ("list all companies that…") miss most of the answer.</p>
 <p><strong>Fix:</strong> per-group budgets, MMR diversification, or rerank with a different signal.</p>
 </div>
 
 <div>
 
-<div>
-
 <p>Related but irrelevant</p>
-</div>
-
 <p>Top-K by cosine returns chunks that look textually similar but don't actually answer the question. "Best match per chunk ≠ best match per concept."</p>
 <p><strong>Fix:</strong> reranker (cheaper LLM scores each candidate), hybrid retrieval (vector + keyword), or query rewriting.</p>
 </div>
 
 <div>
 
-<div>
-
 <p>Search not specific enough</p>
-</div>
-
 <p>"What about their revenue?" — embedding this matches lots of revenue chunks but for wrong companies. Pronouns kill vector search.</p>
 <p><strong>Fix:</strong> rewrite the question into a self-contained query using conversation history. A cheap LLM call.</p>
 </div>
 
 <div>
 
-<div>
-
 <p>Too much context</p>
-</div>
-
 <p>Naively stuff K=50 chunks → 100K tokens → cost &amp; latency balloon, model gets distracted by noise, citations get sloppy.</p>
 <p><strong>Fix:</strong> budget chunks, group by document, trim ruthlessly.</p>
 </div>
@@ -798,16 +493,7 @@ answer = client.messages.create(
 <h2 id="slide-15">15. Context assembly <a class="anchor" href="#slide-15">#</a></h2>
 <div>
 
-<div>
-
 <p>RAG · Lecture</p>
-</div>
-
-<div>
-
-<p>Context assembly</p>
-</div>
-
 <p>How you arrange retrieved chunks in the prompt matters as much as which chunks you retrieved.</p>
 </div>
 
@@ -819,9 +505,7 @@ answer = client.messages.create(
 <li><strong>Mix retrieved + first-party</strong> — structured records (the "company card" pattern from the demo) supplement vector search with vetted facts.</li>
 </ul>
 <p>"Context" isn't just retrieved chunks. It's the prompt you assemble out of <em>all available structured and unstructured inputs</em>, in an order the model can read.</p>
-<h2 id="slide-16">16. Citations <a class="anchor" href="#slide-16">#</a></h2>
-<div>
-
+<h2 id="slide-16">16. Citations — why and how <a class="anchor" href="#slide-16">#</a></h2>
 <div>
 
 <p>RAG · Lecture</p>
@@ -829,20 +513,9 @@ answer = client.messages.create(
 
 <div>
 
-<p>Citations — why and how</p>
-</div>
-
-</div>
-
-<div>
-
-<div>
-
 <div>
 
 <p>Why</p>
-</div>
-
 <ul>
 <li><strong>Trust</strong> — users can verify each claim</li>
 <li><strong>Debuggability</strong> — when an answer is wrong you can see which chunks led there</li>
@@ -853,11 +526,7 @@ answer = client.messages.create(
 
 <div>
 
-<div>
-
 <p>How it breaks</p>
-</div>
-
 <ul>
 <li>Invents <code>[99]</code> for a chunk that doesn't exist</li>
 <li>Cites in jumbled order — <code>[5][1][8]</code> — feels janky</li>
@@ -874,19 +543,10 @@ import re
 used = [int(n) for n in re.findall(r&quot;\[(\d+)\]&quot;, answer)]
 valid = [n for n in used if 1 &lt;= n &lt;= len(retrieved_chunks)]</code></pre>
 <p><strong>Defense</strong>: parse what the model produced, drop the invented ones, return the mapping (chunk → source) to the UI. Validate first; trust second.</p>
-<h2 id="slide-17">17. Single-turn vs agentic RAG <a class="anchor" href="#slide-17">#</a></h2>
-<div>
-
+<h2 id="slide-17">17. Single-turn RAG vs agentic RAG <a class="anchor" href="#slide-17">#</a></h2>
 <div>
 
 <p>RAG · Lecture</p>
-</div>
-
-<div>
-
-<p>Single-turn RAG vs agentic RAG</p>
-</div>
-
 </div>
 
 <table>
@@ -924,31 +584,12 @@ valid = [n for n in used if 1 &lt;= n &lt;= len(retrieved_chunks)]</code></pre>
 <h2 id="slide-18">18. Project <a class="anchor" href="#slide-18">#</a></h2>
 <div>
 
-<p>Context Management</p>
 </div>
 
-<div>
-
-</div>
-
+<h2 id="slide-19">19. Index a corpus, then add RAG to your chat app <a class="anchor" href="#slide-19">#</a></h2>
 <div>
 
 <p>Project</p>
-</div>
-
-<h2 id="slide-19">19. Index a corpus + add RAG <a class="anchor" href="#slide-19">#</a></h2>
-<div>
-
-<div>
-
-<p>Project</p>
-</div>
-
-<div>
-
-<p>Index a corpus, then add RAG to your chat app</p>
-</div>
-
 <p>You'll get a starter zip with a small document corpus and stubs for an indexer and a RAG-extended chat. Implement indexing, retrieval, and grounded answers with citations. Then report on strengths and weaknesses with worked examples.</p>
 </div>
 
@@ -957,11 +598,7 @@ valid = [n for n in used if 1 &lt;= n &lt;= len(retrieved_chunks)]</code></pre>
 
 <div>
 
-<div>
-
 <p>What's in the zip</p>
-</div>
-
 <ul>
 <li><code>documents/</code> — small corpus (markdown / text) to index</li>
 <li><code>indexer.py</code> — stubs for chunking, embedding, storing</li>
@@ -973,11 +610,7 @@ valid = [n for n in used if 1 &lt;= n &lt;= len(retrieved_chunks)]</code></pre>
 
 <div>
 
-<div>
-
 <p>Your job (in order)</p>
-</div>
-
 <ol type="1">
 <li><strong>Index</strong>: implement chunk → embed → store. Run once to populate the index.</li>
 <li><strong>Retrieve</strong>: in the chat endpoint, embed the question, top-K from the store.</li>
