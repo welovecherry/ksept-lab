@@ -28,6 +28,15 @@ NOTE_CSS = """
 <style>
   .mynote { margin-top: 2.5rem; border-top: 2px solid #3fb950; padding-top: 1rem; }
   .mynote > h2 { color: #3fb950; }
+  /* 노트 내부 제목 계층 — 크기 + 포인트 색으로 가독성 (#=h3, ##=h4, ###=h5) */
+  .mynote h3 { font-size: 1.45rem; color: #58a6ff; margin: 1.9rem 0 .5rem;
+    padding-bottom: .3rem; border-bottom: 1px solid #30363d; }
+  .mynote h4 { font-size: 1.18rem; color: #3fb950; margin: 1.3rem 0 .4rem; }
+  .mynote h5 { font-size: 1.02rem; color: #e3b341; margin: 1rem 0 .3rem; }
+  .mynote strong { color: #e3b341; }
+  .mynote ol, .mynote ul { padding-left: 1.4rem; margin: .5rem 0; }
+  .mynote li { margin: .3rem 0; line-height: 1.7; }
+  .mynote p { line-height: 1.75; }
   .mynote pre { background: #0d1117; color: #e6edf3; padding: .8rem 1rem;
     border-radius: 6px; overflow-x: auto; }
   .mynote code { background: #1f2530; color: #e6edf3; padding: .1rem .35rem; border-radius: 4px; }
