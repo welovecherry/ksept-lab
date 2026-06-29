@@ -246,16 +246,16 @@ PAGE_TEMPLATE = r"""<!doctype html>
       <a href="#auto">자동 갱신</a>
       <a href="#log">git log</a>
     </nav>
-    <div class="side-group">📚 튜토리얼</div>
+    <div class="side-group">📚 튜토리얼 + 노트</div>
     <nav>
-      <a href="tutorial/index.html">개요</a>
-      <a href="tutorial/setup.html">Setup</a>
-      <a href="tutorial/foundations.html">Foundations</a>
-      <a href="tutorial/tools.html">Tools &amp; Structure</a>
-      <a href="tutorial/context.html">Context Management</a>
-      <a href="tutorial/agents.html">Architecture &amp; Agents</a>
-      <a href="tutorial/production.html">Production</a>
-      <a href="tutorial/workshop.html">Workshop</a>
+      <a href="learn/index.html">개요</a>
+      <a href="learn/setup.html">Setup</a>
+      <a href="learn/foundations.html">Foundations</a>
+      <a href="learn/tools.html">Tools &amp; Structure</a>
+      <a href="learn/context.html">Context Management</a>
+      <a href="learn/agents.html">Architecture &amp; Agents</a>
+      <a href="learn/production.html">Production</a>
+      <a href="learn/workshop.html">Workshop</a>
     </nav>
     <div class="side-foot">매일 쌓이는 학습 로그<br>welovecherry/ksept-lab</div>
   </aside>

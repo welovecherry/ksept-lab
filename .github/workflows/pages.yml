@@ -32,6 +32,9 @@ jobs:
       - name: Generate docs/index.html from git log
         run: python3 scripts/build_docs.py
 
+      - name: Build learn pages (tutorial + my notes)
+        run: python3 scripts/build_learn.py
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
