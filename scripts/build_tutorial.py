@@ -266,6 +266,45 @@ LANDING_TMPL = """<!doctype html>
     <h1>튜토리얼 아카이브</h1>
     <p class="sub">Full Stack Application Development with Coding Agents — 모듈 7개 · 슬라이드 {total}개</p>
     <p class="sub">원본: <a href="{src}" target="_blank" rel="noopener">{src}</a></p>
+
+    <section class="roadmap">
+      <h2>🗺 일주일 학습 로드맵</h2>
+      <p class="lead">“LLM에게 말 거는 법”에서 출발해 “책임질 수 있는 AI 제품을 혼자 출시하기”로 끝나는 한 주.
+        매 모듈이 새 앱이 아니라 <b>같은 채팅 앱에 능력을 하나씩</b> 얹어 갑니다.</p>
+
+      <h3>앞 절반 — 능력을 쌓는다</h3>
+      <ol class="steps">
+        <li><span class="step-n">1</span><div><b>Setup · 작업실 차리기</b><br>
+          VSCode·Git·Node·Python·Claude Code·API 키 설치. <i>→ AI에게 코드를 시킬 환경이 준비됨.</i></div></li>
+        <li><span class="step-n">2</span><div><b>Foundations · LLM을 알고 첫 앱을 만든다</b><br>
+          LLM이 뭔지, 챗앱 vs 모델 API의 차이, 첫 API 호출로 Flask+React 채팅 앱 + 스트리밍.
+          <i>→ 앞으로 키워갈 ‘씨앗 앱’이 돌아감.</i></div></li>
+        <li><span class="step-n">3</span><div><b>Tools &amp; Structure · 수다쟁이를 일꾼으로</b><br>
+          신뢰성 4단계: 텍스트 파싱 → JSON 스키마 강제·검증 → 툴 사용(에이전트 루프) → MCP.
+          <i>→ 정해진 형식으로 답하고 스스로 도구를 써서 일함.</i></div></li>
+        <li><span class="step-n">4</span><div><b>Context Management · 내 자료를 기억시키기 (RAG)</b><br>
+          임베딩 → 벡터 DB → 청킹 → 관련 조각을 검색해 근거(출처)와 함께 답변.
+          <i>→ 내가 넣은 문서를 근거로 대답함.</i></div></li>
+      </ol>
+
+      <h3>뒤 절반 — 시스템으로 키우고, 책임지고 내보낸다</h3>
+      <ol class="steps">
+        <li><span class="step-n">5</span><div><b>Architecture &amp; Agents · 한 번 호출 → 에이전트 시스템</b><br>
+          에이전트 루프, Claude Code의 정체, 서브에이전트, 메모리, 멀티모델 라우팅, 캐싱, 안전.
+          <i>→ 여러 에이전트가 협력하는 시스템을 설계함.</i></div></li>
+        <li><span class="step-n">6</span><div><b>Production · ‘내 컴퓨터에서 됨’과 ‘세상에 내놔도 됨’의 차이</b><br>
+          평가(골든셋·LLM-as-judge·회귀 게이트), 보안(프롬프트 인젝션·PII), 관측·지연속도.
+          <i>→ 측정되고·방어되고·들여다보이는 앱.</i></div></li>
+        <li><span class="step-n">7</span><div><b>Workshop · 직접 만들어 본다</b><br>
+          배운 걸 합치는 빌드 데이 — 앱을 확장하거나 새로 출시 + 마지막 퀴즈.
+          <i>→ 혼자서 AI 앱을 처음부터 끝까지.</i></div></li>
+      </ol>
+
+      <p class="arc"><b>능력의 4단 진화:</b> 말한다(2) → 믿을 수 있게 답한다(3) → 행동한다(3) → 안다(4),
+        그 위에 <b>5</b> 협력 에이전트 · <b>6</b> 실서비스화 · <b>7</b> 직접 빌드.</p>
+    </section>
+
+    <h2>모듈</h2>
     <div class="cards">{cards}</div>
   </div>
 </div>
