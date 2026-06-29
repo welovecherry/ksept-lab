@@ -24,6 +24,12 @@
     code { background: #1f2530; padding: .1rem .35rem; border-radius: 4px; font-size: .9em; }
     .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; margin: 1rem 0; }
     .mermaid { background: #fff; border-radius: 8px; padding: 1rem; margin: .75rem 0; overflow-x: auto; }
+    /* Mermaid에 HTML 라벨(<br/>)이 있으면 글자색이 페이지 CSS를 상속해 흰 배경에 묻힘.
+       다이어그램 내부 텍스트는 항상 어두운색으로 강제한다. */
+    .mermaid, .mermaid span, .mermaid div, .mermaid p,
+    .mermaid foreignObject, .mermaid .nodeLabel, .mermaid .edgeLabel,
+    .mermaid .label, .mermaid text { color: #1a1a1a !important; fill: #1a1a1a !important; }
+    .mermaid .edgeLabel { background-color: #fff !important; }
     .note { color: var(--muted); font-size: .92rem; }
 
     /* 타임라인 */
@@ -52,7 +58,7 @@
 <body>
   <div class="wrap">
     <h1>ksept-lab <span class="badge">작업일지</span></h1>
-    <p class="sub">Flask + React(Vite) hello-world를 만들며 배운 것들 · 마지막 업데이트 2026-06-29 10:34 · 커밋 1개</p>
+    <p class="sub">Flask + React(Vite) hello-world를 만들며 배운 것들 · 마지막 업데이트 2026-06-29 10:37 · 커밋 2개</p>
 
     <h2>1. 이 프로젝트가 작동하는 방식</h2>
     <div class="card">
@@ -148,6 +154,15 @@ flowchart LR
 
     <h2>작업일지 (git log)</h2>
     <ul class="timeline">
+
+    <li class="commit">
+      <div class="sha"><code>26f5856</code></div>
+      <div class="content">
+        <div class="subject">docs: add auto-generated devlog (GitHub Pages) with Mermaid diagrams</div>
+        <div class="meta">welovecherry · 2026-06-29 10:37</div>
+        <ul class='body'><li>scripts/build_docs.py: read git log and render docs/index.html</li><li>docs/index.html: Korean explainer of architecture, CORS, venv, deploy flow</li><li>5 Mermaid diagrams (request flow, CORS, venv isolation, deploy, docs loop)</li><li>switch backend port 5000 -&gt; 5001 (5000 taken by macOS AirPlay Receiver)</li></ul>
+      </div>
+    </li>
 
     <li class="commit">
       <div class="sha"><code>9d4b2e7</code></div>

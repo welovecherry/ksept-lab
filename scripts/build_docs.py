@@ -119,6 +119,12 @@ PAGE_TEMPLATE = r"""<!doctype html>
     code {{ background: #1f2530; padding: .1rem .35rem; border-radius: 4px; font-size: .9em; }}
     .card {{ background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; margin: 1rem 0; }}
     .mermaid {{ background: #fff; border-radius: 8px; padding: 1rem; margin: .75rem 0; overflow-x: auto; }}
+    /* Mermaid에 HTML 라벨(<br/>)이 있으면 글자색이 페이지 CSS를 상속해 흰 배경에 묻힘.
+       다이어그램 내부 텍스트는 항상 어두운색으로 강제한다. */
+    .mermaid, .mermaid span, .mermaid div, .mermaid p,
+    .mermaid foreignObject, .mermaid .nodeLabel, .mermaid .edgeLabel,
+    .mermaid .label, .mermaid text {{ color: #1a1a1a !important; fill: #1a1a1a !important; }}
+    .mermaid .edgeLabel {{ background-color: #fff !important; }}
     .note {{ color: var(--muted); font-size: .92rem; }}
 
     /* 타임라인 */
