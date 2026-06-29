@@ -353,6 +353,10 @@ def build_page(tut_path):
 
     slides = extract_slides(html)
 
+    # 본문 상단 목차(이 모듈의 슬라이드)는 계층 사이드바와 중복 → 학습본에서 제거.
+    # (원본 보관소 docs/tutorial/* 에는 그대로 남는다.)
+    html = re.sub(r'<details class="toc".*?</details>', "", html, count=1, flags=re.S)
+
     # 노트 읽기/파싱
     note_path = NOTES_DIR / f"{module}.md"
     raw = note_path.read_text(encoding="utf-8") if note_path.exists() else ""
