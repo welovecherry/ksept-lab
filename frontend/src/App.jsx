@@ -8,9 +8,16 @@ export default function App() {
 
   useEffect(() => {
     async function loadHello() {
-      // TODO(human): fetch '/api/hello', read the JSON body, and update state.
-      // On success -> setMessage(data.message). On failure -> setError(...).
-      // Make sure setLoading(false) runs whether the request succeeds or fails.
+      try {
+        const res = await fetch('/api/hello')              // 1. 주문 넣기
+        if (!res.ok) throw new Error(`HTTP ${res.status}`) // 3. 제대로 나왔나 확인
+        const data = await res.json()                      // 2. 포장 풀기
+        setMessage(data.message)                           // 성공: 메시지를 상태에 넣기
+      } catch (err) {
+        setError(err.message)                              // 실패: 에러 메시지를 상태에 넣기
+      } finally {
+        setLoading(false)                                  // 항상: 로딩 표시 끄기
+      }
     }
 
     loadHello()

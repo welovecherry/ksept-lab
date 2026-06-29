@@ -157,7 +157,29 @@ PAGE_TEMPLATE = r"""<!doctype html>
       font-family: -apple-system, "Apple SD Gothic Neo", "Pretendard", system-ui, sans-serif;
       line-height: 1.7;
     }}
+    html {{ scroll-behavior: smooth; scroll-padding-top: 1rem; }}
     .wrap {{ max-width: 860px; margin: 0 auto; padding: 2.5rem 1.25rem 5rem; }}
+
+    /* 좌측 사이드바 + 우측 본문 레이아웃 (프로젝트가 쌓여도 세로로 확장) */
+    .layout {{ display: flex; align-items: flex-start; }}
+    .sidebar {{
+      position: sticky; top: 0; align-self: flex-start;
+      width: 220px; height: 100vh; overflow-y: auto; flex: 0 0 auto;
+      background: var(--panel); border-right: 1px solid var(--border);
+      padding: 1.5rem 1rem;
+    }}
+    .side-title {{ font-weight: 700; margin-bottom: 1rem; font-size: 1.05rem; }}
+    .sidebar nav {{ display: flex; flex-direction: column; gap: .1rem; }}
+    .sidebar nav a {{ color: var(--fg); text-decoration: none; padding: .4rem .6rem;
+      border-radius: 6px; font-size: .92rem; }}
+    .sidebar nav a:hover {{ background: #1f2530; color: var(--accent); }}
+    .side-foot {{ color: var(--muted); font-size: .75rem; margin-top: 1.5rem; line-height: 1.5; }}
+    @media (max-width: 720px) {{
+      .layout {{ flex-direction: column; }}
+      .sidebar {{ position: static; width: auto; height: auto;
+        border-right: none; border-bottom: 1px solid var(--border); }}
+      .sidebar nav {{ flex-direction: row; flex-wrap: wrap; }}
+    }}
     h1 {{ font-size: 2rem; margin: 0 0 .25rem; }}
     h2 {{ font-size: 1.35rem; margin: 2.75rem 0 .75rem; border-bottom: 1px solid var(--border); padding-bottom: .4rem; }}
     h3 {{ font-size: 1.05rem; margin: 1.5rem 0 .4rem; color: var(--accent); }}
@@ -206,11 +228,24 @@ PAGE_TEMPLATE = r"""<!doctype html>
   </style>
 </head>
 <body>
+  <div class="layout">
+  <aside class="sidebar">
+    <div class="side-title">📒 ksept-lab</div>
+    <nav>
+      <a href="#how">작동 방식</a>
+      <a href="#cors">CORS</a>
+      <a href="#venv">가상환경(venv)</a>
+      <a href="#deploy">배포 흐름</a>
+      <a href="#auto">자동 갱신</a>
+      <a href="#log">작업일지</a>
+    </nav>
+    <div class="side-foot">매일 쌓이는 학습 로그<br>welovecherry/ksept-lab</div>
+  </aside>
   <div class="wrap">
     <h1>ksept-lab <span class="badge">작업일지</span></h1>
     <p class="sub">Flask + React(Vite) hello-world를 만들며 배운 것들 · 마지막 업데이트 {last_updated} · 커밋 {count}개</p>
 
-    <h2>1. 이 프로젝트가 작동하는 방식</h2>
+    <h2 id="how">1. 이 프로젝트가 작동하는 방식</h2>
     <div class="card">
       <p>두 개의 <strong>독립된 서버</strong>가 돈다. Flask(:5001)는 JSON 데이터를,
          Vite(:5173)는 React 화면을 책임진다. 브라우저는 5173하고만 대화하고,
@@ -230,7 +265,7 @@ sequenceDiagram
       <p class="note">브라우저 입장에선 전부 5173에서 온 응답이라, 다음에 볼 CORS 문제가 아예 생기지 않는다.</p>
     </div>
 
-    <h2>2. CORS — 왜 프록시가 이걸 우회하나</h2>
+    <h2 id="cors">2. CORS — 왜 프록시가 이걸 우회하나</h2>
     <div class="card">
       <p>브라우저는 보안상 <strong>다른 출처(origin)</strong>의 응답을 JS가 읽지 못하게 막는다
          (Same-Origin Policy). 출처 = (scheme, host, port) 셋이 모두 같아야 한다.
@@ -248,7 +283,7 @@ flowchart TD
       <p class="note">그래서 우리는 안전망으로 <code>flask-cors</code>도 켜두고, 동시에 프록시도 쓴다. 두 겹.</p>
     </div>
 
-    <h2>3. 가상환경(venv)은 무엇을 격리하나</h2>
+    <h2 id="venv">3. 가상환경(venv)은 무엇을 격리하나</h2>
     <div class="card">
       <p><code>python3 -m venv .venv</code>는 프로젝트 전용 파이썬 + 전용 <code>site-packages</code>를 만든다.
          <code>pip install</code>은 시스템이 아니라 이 폴더 안에 쓴다. 그래서 프로젝트마다
@@ -268,7 +303,7 @@ flowchart LR
       <p class="note"><code>source .venv/bin/activate</code>는 단지 <code>.venv/bin</code>을 PATH 앞에 끼워주는 단축일 뿐.</p>
     </div>
 
-    <h2>4. 로컬 → GitHub → Pages 배포 흐름</h2>
+    <h2 id="deploy">4. 로컬 → GitHub → Pages 배포 흐름</h2>
     <div class="card">
       <p><code>git commit</code>은 로컬에 스냅샷을 찍고, <code>git push</code>는 그걸 GitHub로 보낸다.
          GitHub Pages를 <code>main</code>의 <code>/docs</code> 폴더로 설정해두면, 푸시될 때마다
@@ -287,7 +322,7 @@ sequenceDiagram
       </div>
     </div>
 
-    <h2>5. 이 작업일지는 어떻게 자동으로 갱신되나</h2>
+    <h2 id="auto">5. 이 작업일지는 어떻게 자동으로 갱신되나</h2>
     <div class="card">
       <p><code>scripts/build_docs.py</code>가 <code>git log</code>를 읽어 이 페이지의 타임라인을 다시 만든다.
          즉 <strong>커밋 메시지가 곧 작업일지</strong>다. 커밋 → 생성기 실행 → 푸시.</p>
@@ -302,7 +337,7 @@ flowchart LR
       <p class="note">한계: 페이지는 자기 자신을 만든 커밋은 못 담는다(해시는 내용으로 정해지므로 자기 해시를 자기 안에 넣을 수 없다). 그래서 항상 한 박자 늦다 — GitHub Actions로 없앨 수 있는 lag.</p>
     </div>
 
-    <h2>작업일지 (git log)</h2>
+    <h2 id="log">작업일지 (git log)</h2>
     <div class="timeline-wrap">
 {timeline}
     </div>
@@ -311,6 +346,7 @@ flowchart LR
       소스: <a href="https://github.com/welovecherry/ksept-lab">github.com/welovecherry/ksept-lab</a>
     </p>
   </div>
+  </div><!-- /layout -->
 
   <script type="module">
     import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
