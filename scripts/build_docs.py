@@ -18,10 +18,12 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT_HOME = ROOT / "docs" / "index.html"
 OUT_CHANGELOG = ROOT / "docs" / "changelog.html"
 OUT_NOTES = ROOT / "docs" / "notes.html"
+OUT_PRACTICE = ROOT / "docs" / "practice.html"
 
 # 사이트 수준 내비 (홈/노트/변경이력이 공유하는 사이드바) — '섹션 이동'만, 모듈/앵커 안 섞음
 SITE = [
     ("index.html", "🏠 홈"),
+    ("practice.html", "🧪 첫 호출 실습"),
     ("learn/index.html", "📚 학습 시작"),
     ("tutorial/index.html", "📖 원본 보관소"),
     ("notes.html", "🧩 프로젝트 노트"),
@@ -135,6 +137,7 @@ def sidebar_html(active=""):
 # ── 홈 본문 ───────────────────────────────────────────────────────────────────
 def home_body(last_updated, count):
     entry = [
+        ("practice.html", "🧪 첫 API 호출 실습", "따라만 하면 10분 안에 내 컴퓨터에서 Claude 호출"),
         ("learn/index.html", "📚 학습 시작", "원본 + 내 노트 + 인터랙티브 퀴즈로 공부하는 곳"),
         ("tutorial/index.html", "📖 원본 보관소", "스크랩한 튜토리얼 슬라이드 원본 (참고용)"),
         ("notes.html", "🧩 프로젝트 노트", "작동방식·CORS·venv·배포를 쉬운 말로 정리"),
@@ -280,6 +283,133 @@ def changelog_body(timeline, last_updated, count):
 
 
 # ── 공통 셸(레이아웃 + 스타일) ────────────────────────────────────────────────
+# ── 첫 API 호출 실습 (따라 하기) ──────────────────────────────────────────────
+# 공개 페이지이므로 진짜 키는 절대 넣지 않는다. 코드 블록의 중괄호는 .format 값이라 안전.
+def practice_body():
+    return r"""    <style>
+      .lead { font-size: 1.06rem; color: #c9d1d9; }
+      .steps { margin: 1.6rem 0; }
+      .step { position: relative; border: 1px solid var(--border); border-radius: 10px;
+        background: var(--panel); padding: 1rem 1.2rem 1.1rem 3.3rem; margin: .9rem 0; }
+      .step > .n { position: absolute; left: 1rem; top: 1rem; width: 1.7rem; height: 1.7rem;
+        border-radius: 50%; background: var(--accent); color: #0d1117; font-weight: 700;
+        display: flex; align-items: center; justify-content: center; font-size: .92rem; }
+      .step h3 { margin: .15rem 0 .55rem; color: var(--fg); }
+      .step p { margin: .4rem 0; }
+      pre { background: #010409; border: 1px solid var(--border); border-radius: 8px;
+        padding: .8rem 1rem; overflow-x: auto; font-size: .88rem; line-height: 1.6; }
+      pre code { background: none; padding: 0; font-size: inherit; }
+      .cmt { color: #6e7681; }
+      .ok { background: #11271a; border-left: 3px solid var(--green); border-radius: 6px;
+        padding: .55rem .85rem; margin: .75rem 0 0; font-size: .93rem; }
+      .ok b { color: var(--green); }
+      .warn { background: #2a1d11; border-left: 3px solid #e3b341; border-radius: 6px;
+        padding: .55rem .85rem; margin: .75rem 0 0; font-size: .93rem; }
+      .warn b { color: #e3b341; }
+      table.err { border-collapse: collapse; width: 100%; margin: .6rem 0; font-size: .9rem; }
+      table.err td { border: 1px solid var(--border); padding: .45rem .65rem; vertical-align: top; }
+      table.err td:first-child { color: #f85149; white-space: nowrap; font-weight: 600; }
+      .tag { display: inline-block; background: #1f6feb22; color: var(--accent);
+        border: 1px solid #1f6feb55; border-radius: 999px; padding: .05rem .55rem; font-size: .78rem; }
+    </style>
+
+    <h1>🧪 첫 Claude API 호출 <span class="badge">실습</span></h1>
+    <p class="sub"><a href="index.html">← 홈으로</a> · 위에서부터 그대로 따라 하세요. 복붙만 하면 <b>10분 안에</b> 내 컴퓨터에서 Claude한테 말 걸고 답을 받습니다.</p>
+
+    <p class="analogy">🍳 <b>비유:</b> API 호출 = <b>식당 주방에 주문서 넣기</b>. 정해진 양식의 주문서(요청)를 창구에 넣으면 주방(Claude 서버)이 요리(답)를 돌려줘요. 주방이 어떻게 요리하는지는 몰라도 됩니다.</p>
+
+    <div class="steps">
+
+      <div class="step"><span class="n">0</span>
+        <h3>준비물 확인</h3>
+        <p>터미널(맥: <code>터미널</code>, 윈도우: <code>PowerShell</code>)을 열고 파이썬이 있는지 확인:</p>
+        <pre><code>python3 --version</code></pre>
+        <div class="ok"><b>이렇게 나오면 OK:</b> <code>Python 3.x.x</code> (3.9 이상이면 충분). 없다면 <a href="learn/setup.html">Setup 모듈</a>에서 설치.</div>
+      </div>
+
+      <div class="step"><span class="n">1</span>
+        <h3>실습 폴더 만들기</h3>
+        <pre><code>mkdir claude-practice
+cd claude-practice</code></pre>
+        <p class="note">아무 위치나 괜찮아요. 바탕화면이든 문서든.</p>
+      </div>
+
+      <div class="step"><span class="n">2</span>
+        <h3>가상환경 + 패키지 설치</h3>
+        <p>이 폴더 전용 파이썬 공간(<code>.venv</code>)을 만들고, 그 안에 <code>anthropic</code> 패키지를 깝니다.</p>
+        <pre><code><span class="cmt"># 맥 / 리눅스</span>
+python3 -m venv .venv
+source .venv/bin/activate
+pip install anthropic python-dotenv</code></pre>
+        <pre><code><span class="cmt"># 윈도우(PowerShell)면 활성화 줄만 이렇게</span>
+.venv\Scripts\Activate.ps1</code></pre>
+        <div class="ok"><b>성공 신호:</b> 줄 맨 앞에 <code>(.venv)</code>가 붙어요. 그게 "이 폴더 환경에 들어왔다"는 뜻.</div>
+      </div>
+
+      <div class="step"><span class="n">3</span>
+        <h3>API 키를 <code>.env</code> 파일에 넣기</h3>
+        <p>같은 폴더에 <code>.env</code> 라는 파일을 만들고 <b>딱 한 줄</b> 적습니다. (강사가 준 수업 키 또는 본인 키)</p>
+        <pre><code>ANTHROPIC_API_KEY=sk-ant-여기에_내_키_붙여넣기</code></pre>
+        <div class="warn"><b>보안 ⚠️</b> 이 키는 신분증 + 결제수단이에요. <b>깃허브·채팅·공개 파일에 절대 올리지 마세요.</b> <code>.env</code>에만 두면 코드에 키가 안 박혀서 안전해요.</div>
+      </div>
+
+      <div class="step"><span class="n">4</span>
+        <h3>코드 파일 만들기 — <code>hello_claude.py</code></h3>
+        <p>같은 폴더에 <code>hello_claude.py</code> 파일을 만들고 아래를 <b>그대로 복붙</b>:</p>
+        <pre><code>from dotenv import load_dotenv
+from anthropic import Anthropic
+
+load_dotenv()                 <span class="cmt"># .env 의 키를 환경변수로 올림</span>
+client = Anthropic()          <span class="cmt"># ANTHROPIC_API_KEY 자동 로드</span>
+
+resp = client.messages.create(
+    model="claude-haiku-4-5",                 <span class="cmt"># 수업용: 빠르고 저렴</span>
+    max_tokens=256,                           <span class="cmt"># 답 길이 상한</span>
+    messages=[{"role": "user", "content": "한 문장으로 자기소개 해줘"}],
+)
+
+print(resp.content[0].text)   <span class="cmt"># 돌아온 답 출력</span></code></pre>
+        <div class="note">더 똑똑한 답이 필요하면 <code>model</code> 한 줄만 <code>"claude-opus-4-8"</code>로 바꾸면 돼요(단, 비용 ↑).</div>
+      </div>
+
+      <div class="step"><span class="n">5</span>
+        <h3>실행!</h3>
+        <pre><code>python hello_claude.py</code></pre>
+        <div class="ok"><b>🎉 성공:</b> 화면에 Claude의 답 한 줄이 찍히면 끝. <b>이게 "API 호출"의 전부예요.</b></div>
+      </div>
+
+      <div class="step"><span class="n">6</span>
+        <h3>바꿔보며 감 잡기</h3>
+        <p>코드의 <code>content</code> 문장을 바꿔서 다시 실행해 보세요. 그 다음 한 줄씩 실험:</p>
+        <pre><code>    <span class="cmt"># 역할(규칙)을 줘 보기 — create(...) 안에 추가</span>
+    system="너는 항상 반말로, 한 문장으로만 답한다.",
+
+    <span class="cmt"># 답이 잘리면 max_tokens 를 키우기</span>
+    max_tokens=512,</code></pre>
+      </div>
+
+    </div>
+
+    <h2>🧩 방금 무슨 일이 일어났나 (한 줄씩)</h2>
+    <ol>
+      <li><code>load_dotenv()</code> — <code>.env</code>의 키를 <b>메모리(환경변수)</b>로 올림.</li>
+      <li><code>Anthropic()</code> — 키를 들고 서버와 통신할 준비가 된 <b>클라이언트</b>.</li>
+      <li><code>client.messages.create(...)</code> — <b>이 줄에서 실제로 인터넷 요청이 나가요.</b> 답이 올 때까지 잠깐 멈춤.</li>
+      <li><code>resp.content[0].text</code> — 돌아온 답을 꺼냄. (응답은 블록들의 <b>리스트</b>라 <code>[0]</code>.)</li>
+    </ol>
+
+    <h2>🚑 자주 나는 에러</h2>
+    <table class="err">
+      <tr><td>ModuleNotFoundError: anthropic</td><td>2단계 <code>pip install</code>을 안 했거나 <code>(.venv)</code>가 안 켜짐. 다시 <code>source .venv/bin/activate</code> 후 설치.</td></tr>
+      <tr><td>401 authentication_error</td><td>키가 틀렸거나 안 읽힘. <code>.env</code> 위치(같은 폴더)·오타·<code>load_dotenv()</code> 호출 확인.</td></tr>
+      <tr><td>답이 중간에 잘림</td><td><code>max_tokens</code>를 키우기. (<code>resp.stop_reason</code>이 <code>"max_tokens"</code>면 길이 때문.)</td></tr>
+    </table>
+
+    <h2>➡️ 다음</h2>
+    <p>이 <code>messages.create(...)</code> 호출이 <b>그대로</b> 챗 앱의 <code>/api/chat</code> 안으로 들어갑니다. 딱 하나만 바뀌어요 — "고정 질문" 대신 사용자가 입력한 질문을 넣는 것. 즉 <b>이 실습을 끝낸 순간, 챗 앱의 제일 어려운 조각은 이미 끝났어요.</b></p>
+    <p class="note" style="margin-top:2rem"><a href="index.html">← 홈으로</a> · <a href="learn/foundations.html#slide-13">📚 Foundations 13번에서 더 깊이 보기</a></p>"""
+
+
 def shell(title, body, active=""):
     return SHELL.format(title=html.escape(title), sidebar=sidebar_html(active), body=body)
 
@@ -298,12 +428,16 @@ def build():
         shell("프로젝트 노트 · ksept-lab", notes_body(), active="notes.html"),
         encoding="utf-8",
     )
+    OUT_PRACTICE.write_text(
+        shell("첫 API 호출 실습 · ksept-lab", practice_body(), active="practice.html"),
+        encoding="utf-8",
+    )
     OUT_CHANGELOG.write_text(
         shell("변경 이력 · ksept-lab", changelog_body(render_timeline(commits), last_updated, count),
               active="changelog.html"),
         encoding="utf-8",
     )
-    print(f"wrote index.html, notes.html, changelog.html  ({count} commits)")
+    print(f"wrote index.html, practice.html, notes.html, changelog.html  ({count} commits)")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

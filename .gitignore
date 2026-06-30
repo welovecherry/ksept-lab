@@ -3,6 +3,11 @@
 __pycache__/
 *.pyc
 
+# Secrets — never commit API keys
+.env
+*.env
+!*.env.example
+
 # Node
 node_modules/
 frontend/dist/
@@ -15,4 +20,5 @@ frontend/dist/
 docs/index.html
 docs/changelog.html
 docs/notes.html
+docs/practice.html
 docs/learn/
