@@ -263,6 +263,30 @@ def md_to_html(md):
         if in_ol:
             out.append("</ol>"); in_ol = False
 
+    def starts_block(idx):
+        """lines[idx]가 새 블록(빈 줄/제목/목록/코드/표)의 시작이면 True.
+        아니면 앞 문단·목록 항목에 이어 붙는 '소프트 줄바꿈' 연속 줄이다."""
+        if idx >= len(lines):
+            return True
+        t = lines[idx].strip()
+        if not t or t.startswith("```"):
+            return True
+        if re.match(r"#{1,6}\s+", t) or re.match(r"[-*]\s+", t) or re.match(r"\d+\.\s+", t):
+            return True
+        nxt = lines[idx + 1] if idx + 1 < len(lines) else ""
+        if t.startswith("|") and "---" in nxt and re.match(r"^\s*\|?[\s:|-]+\|?\s*$", nxt):
+            return True
+        return False
+
+    def gather(first):
+        """현재 줄(first) + 이어지는 연속 줄들을 공백으로 합쳐 한 덩어리로."""
+        nonlocal i
+        parts = [first]
+        i += 1
+        while not starts_block(i):
+            parts.append(lines[i].strip()); i += 1
+        return " ".join(parts)
+
     while i < len(lines):
         line = lines[i]
         if line.strip().startswith("```"):
@@ -311,19 +335,18 @@ def md_to_html(md):
                 out.append("<ul>"); in_ul = True
             elif in_ol:
                 close_lists(); out.append("<ul>"); in_ul = True
-            out.append(f"<li>{_inline(m.group(1))}</li>")
-            i += 1; continue
+            out.append(f"<li>{_inline(gather(m.group(1)))}</li>")
+            continue
         m = re.match(r"\d+\.\s+(.*)", s)
         if m:
             if not in_ul and not in_ol:
                 out.append("<ol>"); in_ol = True
             elif in_ul:
                 close_lists(); out.append("<ol>"); in_ol = True
-            out.append(f"<li>{_inline(m.group(1))}</li>")
-            i += 1; continue
+            out.append(f"<li>{_inline(gather(m.group(1)))}</li>")
+            continue
         close_lists()
-        out.append(f"<p>{_inline(s)}</p>")
-        i += 1
+        out.append(f"<p>{_inline(gather(s))}</p>")
     close_lists()
     return "\n".join(out)
 
