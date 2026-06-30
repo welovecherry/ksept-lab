@@ -19,6 +19,7 @@ OUT_HOME = ROOT / "docs" / "index.html"
 OUT_CHANGELOG = ROOT / "docs" / "changelog.html"
 OUT_NOTES = ROOT / "docs" / "notes.html"
 OUT_PRACTICE = ROOT / "docs" / "practice.html"
+OUT_PROJECT = ROOT / "docs" / "rag-project.html"
 
 # 사이트 수준 내비 (홈/노트/변경이력이 공유하는 사이드바) — '섹션 이동'만, 모듈/앵커 안 섞음
 SITE = [
@@ -27,6 +28,7 @@ SITE = [
     ("learn/index.html", "📚 학습 시작"),
     ("tutorial/index.html", "📖 원본 보관소"),
     ("notes.html", "🧩 프로젝트 노트"),
+    ("rag-project.html", "🛩️ RAG 콘테스트"),
     ("changelog.html", "📜 변경 이력"),
 ]
 
@@ -141,6 +143,7 @@ def home_body(last_updated, count):
         ("learn/index.html", "📚 학습 시작", "원본 + 내 노트 + 인터랙티브 퀴즈로 공부하는 곳"),
         ("tutorial/index.html", "📖 원본 보관소", "스크랩한 튜토리얼 슬라이드 원본 (참고용)"),
         ("notes.html", "🧩 프로젝트 노트", "작동방식·CORS·venv·배포를 쉬운 말로 정리"),
+        ("rag-project.html", "🛩️ RAG 콘테스트", "FAA 항공법 RAG 챗봇 — 개요·임베딩·실험·작업일지"),
         ("changelog.html", "📜 변경 이력", "커밋 메시지로 자동 생성되는 작업일지"),
     ]
     entry_cards = "".join(
@@ -410,6 +413,99 @@ print(resp.content[0].text)   <span class="cmt"># 돌아온 답 출력</span></c
     <p class="note" style="margin-top:2rem"><a href="index.html">← 홈으로</a> · <a href="learn/foundations.html#slide-13">📚 Foundations 13번에서 더 깊이 보기</a></p>"""
 
 
+def project_body():
+    return r"""    <style>
+      .proj-toc { display:flex; flex-wrap:wrap; gap:.4rem; margin:1rem 0 1.6rem; }
+      .proj-toc a { background:#1f2530; color:#58a6ff; border:1px solid #30363d;
+        border-radius:999px; padding:.2rem .7rem; font-size:.85rem; text-decoration:none; }
+      .proj-toc a:hover { border-color:#58a6ff; }
+      .sec { border-top:1px solid #30363d; margin:2rem 0 0; padding-top:1.2rem; scroll-margin-top:1rem; }
+      .sec > h2 { color:#58a6ff; }
+      .term { background:#0f1a12; border-left:3px solid var(--green,#3fb950); border-radius:0 8px 8px 0;
+        padding:.5rem .9rem; margin:.7rem 0; font-size:.93rem; }
+      table.cmp { border-collapse:collapse; width:100%; margin:.8rem 0; font-size:.9rem; }
+      table.cmp th, table.cmp td { border:1px solid #30363d; padding:.45rem .65rem; text-align:left; vertical-align:top; }
+      table.cmp th { background:#1f2530; color:#e6edf3; }
+      table.cmp code { background:#1f2530; }
+      .warn { background:#2a1d11; border-left:3px solid #e3b341; border-radius:6px;
+        padding:.6rem .9rem; margin:.8rem 0; font-size:.93rem; }
+      .warn b { color:#e3b341; }
+      .ok { background:#11271a; border-left:3px solid #3fb950; border-radius:6px;
+        padding:.6rem .9rem; margin:.8rem 0; font-size:.93rem; }
+      .ok b { color:#3fb950; }
+      .ph { background:#161b22; border:1px dashed #30363d; border-radius:8px;
+        padding:.9rem 1.1rem; margin:.8rem 0; color:#8b949e; }
+      .ph b { color:#c9d1d9; }
+    </style>
+
+    <h1>🛩️ RAG 콘테스트 프로젝트 <span class="badge">FAA 항공법 챗봇</span></h1>
+    <p class="sub"><a href="index.html">← 홈으로</a> · 미국 연방항공규정(14 CFR) 위에 RAG 챗봇을 만들어 토너먼트로 겨루는 프로젝트. 여기에 개요·배경지식·실험·작업일지를 기록한다.</p>
+
+    <div class="proj-toc">
+      <a href="#overview">📌 개요</a>
+      <a href="#embeddings">🔢 임베딩 모델</a>
+      <a href="#experiments">🧪 실험 계획</a>
+      <a href="#log">📝 작업 일지</a>
+      <a href="#ideas">💡 메모·아이디어</a>
+      <a href="#questions">❓ 질문 모음</a>
+    </div>
+
+    <section class="sec" id="overview">
+      <h2>📌 개요</h2>
+      <p class="analogy">📖 <b>비유:</b> RAG = <b>오픈북 시험 보는 학생</b>. 머릿속 지식만으로 답하면 틀린 말을 지어내니(환각), <b>관련 조항을 펼쳐 읽고 그 근거로</b> 답하게 만든다.</p>
+      <p>대회는 같은 FAA 코퍼스(6개 PDF, 약 1,297쪽)로 모두가 챗봇을 만들고, 당일 <b>처음 보는 질문 3개</b>로 1:1 토너먼트. <b>더 잘 근거대고 인용한</b> 쪽이 승급. 승부처는 <b>답변 품질(30) + 인용·근거(25) = 55점.</b></p>
+      <p class="note">전략 원본: <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/STRATEGY.md">STRATEGY.md</a> · 실험 런북: <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/EXPERIMENTS.md">EXPERIMENTS.md</a></p>
+    </section>
+
+    <section class="sec" id="embeddings">
+      <h2>🔢 임베딩 모델 배경지식</h2>
+      <p class="analogy">🧭 <b>비유:</b> 임베딩 = 문장을 <b>'뜻 좌표'</b>로 바꾸는 것. 뜻이 비슷한 문장은 좌표도 가까이 찍힌다 → 그래서 "뜻으로 검색"이 된다.</p>
+
+      <div class="term"><b>차원(dimension)</b> = 벡터 숫자의 개수. MiniLM=384, bge·e5·gte=1024. 클수록 뜻을 세밀히 표현(대신 무겁고 느림).</div>
+      <div class="term"><b>MTEB</b> = 임베딩 모델 공식 성적표. 검색 등 과제로 순위를 매긴 벤치마크.</div>
+      <div class="term"><b>쿼리 프리픽스</b> = bge·e5를 <i>검색</i>에 쓸 때 질문 앞에 붙이는 주문. 안 붙이면 성능 급락.</div>
+
+      <h3>우리 계획 — 기준 1 + 후보 3</h3>
+      <p>스타터 기본 <code>MiniLM</code>(384차원·다국어용)은 작고 범용이라 영어 법조문엔 약하다. 영어 특화·고차원 모델 3개를 후보로 두고, <b>자동 실험(Recall@K)으로 어느 게 최고인지 데이터로</b> 고른다.</p>
+      <table class="cmp">
+        <tr><th>모델</th><th>sentence-transformers 이름</th><th>차원</th><th>프리픽스</th><th>특징</th></tr>
+        <tr><td>기준 MiniLM</td><td><code>paraphrase-multilingual-MiniLM-L12-v2</code></td><td>384</td><td>불필요</td><td>스타터 기본·빠름·약함(비교 기준선)</td></tr>
+        <tr><td><b>bge-large-en</b></td><td><code>BAAI/bge-large-en-v1.5</code></td><td>1024</td><td>필요</td><td>영어 검색 강자, 안정적</td></tr>
+        <tr><td><b>e5-large</b></td><td><code>intfloat/e5-large-v2</code></td><td>1024</td><td><code>query:</code>/<code>passage:</code></td><td>bge와 쌍벽</td></tr>
+        <tr><td><b>gte-large</b></td><td><code>thenlper/gte-large</code></td><td>1024</td><td>불필요</td><td>교체 가장 쉬움</td></tr>
+      </table>
+
+      <div class="warn"><b>함정 — 쿼리 프리픽스 ⚠️</b> bge·e5는 검색용으로 쓸 때 정해진 문구를 앞에 붙여야 제 성능이 난다. e5는 질문에 <code>query: </code>·문서에 <code>passage: </code>, bge는 검색용 지시문. <b>gte는 불필요</b>라 교체가 제일 쉽다. 안 붙이면 "좋은 모델로 바꿨는데 더 나빠짐"이 생긴다.</div>
+
+      <div class="ok"><b>대회 규칙</b> 임베딩 모델은 <b>로컬 모델만 허용</b>(클라우드 임베딩 API ❌). bge·e5·gte는 전부 로컬·무료라 OK.</div>
+
+      <p class="note">왜 하나로 안 정하고 다 시험하나 — "추측 말고 측정". 홀드아웃 질문으로 <b>Recall@K</b>(정답 조항이 검색 상위 K에 든 비율)를 재서 1등을 가린다. Claude를 안 부르니 채점이 공짜.</p>
+    </section>
+
+    <section class="sec" id="experiments">
+      <h2>🧪 실험 계획 (요약)</h2>
+      <p>전부 조합(폭발) 대신 <b>싼 검색 축은 작은 그리드, 비싼 생성 축은 순차</b>. 검색 실험(청킹·임베딩·검색방식·top-K)은 Claude 없이 <b>Recall@K로 공짜 채점</b>, 생성 실험만 과금(Batches 50%↓).</p>
+      <p class="note">자세한 절차: <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/EXPERIMENTS.md">EXPERIMENTS.md</a></p>
+    </section>
+
+    <section class="sec" id="log">
+      <h2>📝 작업 일지</h2>
+      <div class="ph"><b>여기에 날짜별로 기록:</b> 오늘 한 일 / 막힌 점 / 해결. (예: "Phase 0 완료 — 스타터 Apollo 1,133청크 인덱싱 성공")</div>
+    </section>
+
+    <section class="sec" id="ideas">
+      <h2>💡 메모·아이디어</h2>
+      <div class="ph"><b>떠오른 개선 아이디어를 자유롭게:</b> §경계 청킹, 리랭킹, 인용 UI 등.</div>
+    </section>
+
+    <section class="sec" id="questions">
+      <h2>❓ 질문 모음</h2>
+      <div class="ph"><b>헷갈리는 것 / 나중에 물어볼 것:</b> 답을 찾으면 옆에 정리.</div>
+    </section>
+
+    <p class="note" style="margin-top:2rem"><a href="index.html">← 홈으로</a></p>"""
+
+
 def shell(title, body, active=""):
     return SHELL.format(title=html.escape(title), sidebar=sidebar_html(active), body=body)
 
@@ -432,12 +528,16 @@ def build():
         shell("첫 API 호출 실습 · ksept-lab", practice_body(), active="practice.html"),
         encoding="utf-8",
     )
+    OUT_PROJECT.write_text(
+        shell("RAG 콘테스트 · ksept-lab", project_body(), active="rag-project.html"),
+        encoding="utf-8",
+    )
     OUT_CHANGELOG.write_text(
         shell("변경 이력 · ksept-lab", changelog_body(render_timeline(commits), last_updated, count),
               active="changelog.html"),
         encoding="utf-8",
     )
-    print(f"wrote index.html, practice.html, notes.html, changelog.html  ({count} commits)")
+    print(f"wrote index.html, practice.html, notes.html, rag-project.html, changelog.html  ({count} commits)")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
