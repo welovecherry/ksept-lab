@@ -443,6 +443,7 @@ def project_body():
 
     <div class="proj-toc">
       <a href="#overview">📌 개요</a>
+      <a href="#glossary">📖 용어 사전</a>
       <a href="#embeddings">🔢 임베딩 모델</a>
       <a href="#experiments">🧪 실험 계획</a>
       <a href="#log">📝 작업 일지</a>
@@ -455,6 +456,102 @@ def project_body():
       <p class="analogy">📖 <b>비유:</b> RAG = <b>오픈북 시험 보는 학생</b>. 머릿속 지식만으로 답하면 틀린 말을 지어내니(환각), <b>관련 조항을 펼쳐 읽고 그 근거로</b> 답하게 만든다.</p>
       <p>대회는 같은 FAA 코퍼스(6개 PDF, 약 1,297쪽)로 모두가 챗봇을 만들고, 당일 <b>처음 보는 질문 3개</b>로 1:1 토너먼트. <b>더 잘 근거대고 인용한</b> 쪽이 승급. 승부처는 <b>답변 품질(30) + 인용·근거(25) = 55점.</b></p>
       <p class="note">전략 원본: <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/STRATEGY.md">STRATEGY.md</a> · 실험 런북: <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/EXPERIMENTS.md">EXPERIMENTS.md</a></p>
+    </section>
+
+    <section class="sec" id="glossary">
+      <style>
+        .glgroup { margin:1.1rem 0 1.4rem; }
+        .glgroup > h3 { color:#3fb950; border-bottom:1px solid #30363d; padding-bottom:.25rem; }
+        .gl { display:flex; gap:.6rem; padding:.5rem 0; border-bottom:1px dashed #21262d; flex-wrap:wrap; }
+        .gl .t { flex:0 0 13rem; color:#e3b341; font-weight:700; }
+        .gl .d { flex:1 1 18rem; line-height:1.7; color:#c9d1d9; }
+        .gl .d code { background:#1f2530; }
+        @media (max-width:640px){ .gl .t { flex-basis:100%; } }
+      </style>
+      <h2>📖 용어 사전 — 계획에 나온 말, 전부 쉽게</h2>
+      <p class="sub">처음 보는 단어가 많아도 괜찮다. 비유와 예시로 하나씩. 위에서 아래로 읽으면 RAG 한 바퀴가 돈다.</p>
+
+      <div class="glgroup">
+        <h3>🌐 1. 큰 그림</h3>
+        <div class="gl"><span class="t">RAG (검색 증강 생성)</span><span class="d">Retrieval-Augmented Generation. <b>오픈북 시험 보는 학생</b>. 머릿속 지식만으로 답하지 않고, 관련 문서를 <b>찾아 읽고(검색)</b> 그 근거로 <b>답을 쓴다(생성)</b>.</span></div>
+        <div class="gl"><span class="t">코퍼스 (corpus)</span><span class="d">말뭉치 = <b>문서 한 더미</b>. 챗봇이 근거로 삼는 자료 전체. 우리 경우 FAA 항공법 PDF 6개.</span></div>
+        <div class="gl"><span class="t">FAA</span><span class="d">미국 연방항공청. 미국 하늘의 규칙을 정하는 정부기관.</span></div>
+        <div class="gl"><span class="t">CFR · Title 14</span><span class="d">미국 연방규정집(법전). 그중 14편이 항공·우주. = 우리 코퍼스의 정체.</span></div>
+        <div class="gl"><span class="t">도메인 한정 챗봇</span><span class="d">한 분야(항공법)만 답하는 챗봇. 범위 밖 질문("점심 뭐 먹지?")엔 "출처 밖"이라 <b>거부</b>해야 점수.</span></div>
+        <div class="gl"><span class="t">루브릭 (rubric)</span><span class="d">채점 기준표. 6개 항목 100점(품질30·인용25·비용15·명확10·UX10·견고10).</span></div>
+        <div class="gl"><span class="t">토너먼트 / 상대평가</span><span class="d">두 챗봇이 같은 새 질문에 답하고 <b>더 나은 쪽</b>이 승급. 절대 점수가 아니라 "옆보다 나은가".</span></div>
+      </div>
+
+      <div class="glgroup">
+        <h3>🧱 2. 데이터 만들기 (문서 → 검색 준비)</h3>
+        <div class="gl"><span class="t">텍스트 추출</span><span class="d">PDF에서 글자만 뽑아내기. PDF는 글자가 좌표로 흩어져 있어 표·머리말이 섞여 지저분 → 정리가 필요.</span></div>
+        <div class="gl"><span class="t">청크 (chunk)</span><span class="d">긴 문서에서 잘라낸 <b>한 토막</b>(책의 한 페이지 조각). 검색·인용의 최소 단위.</span></div>
+        <div class="gl"><span class="t">청킹 (chunking)</span><span class="d">문서를 청크로 <b>자르는 일</b>. 너무 크면 검색이 흐려지고, 너무 작으면 맥락이 끊긴다.</span></div>
+        <div class="gl"><span class="t">오버랩 (overlap)</span><span class="d">조각끼리 <b>겹치는 부분</b>. 자른 경계에서 맥락이 끊기지 않게 앞 조각 끝 일부를 다음 조각에 겹쳐 넣음.</span></div>
+        <div class="gl"><span class="t">§조항 / 조항번호</span><span class="d">법조문의 항목 번호(예: <code>§91.151</code> = 연료 예비 규정). "한 조각 = 한 조항"이 가장 깔끔한 의미 단위.</span></div>
+        <div class="gl"><span class="t">메타데이터 (metadata)</span><span class="d">조각에 붙이는 <b>꼬리표</b>(예: "이건 §91.151, Part 91"). 검색·인용을 한꺼번에 좋게 만든다.</span></div>
+        <div class="gl"><span class="t">임베딩 (embedding)</span><span class="d">문장을 <b>'뜻 좌표'</b>(숫자 묶음)로 바꾸기. 뜻이 비슷하면 좌표도 가까이.</span></div>
+        <div class="gl"><span class="t">벡터 (vector)</span><span class="d">그 숫자 묶음 자체. "공간 속 한 점".</span></div>
+        <div class="gl"><span class="t">차원 (dimension)</span><span class="d">벡터 숫자의 개수. MiniLM=384, bge·e5·gte=1024. 클수록 세밀(대신 무겁다).</span></div>
+        <div class="gl"><span class="t">인덱스 · <code>index.pkl</code></span><span class="d">모든 청크 + 그 벡터를 담은 <b>검색용 카드 상자</b> 파일.</span></div>
+        <div class="gl"><span class="t">인덱싱 (indexing)</span><span class="d">문서를 잘라 벡터로 바꿔 인덱스에 저장하는 <b>전 과정</b>(사서가 색인 만들기).</span></div>
+        <div class="gl"><span class="t">sentence-transformers</span><span class="d">문장을 임베딩으로 바꿔주는 <b>로컬·무료</b> 파이썬 도구. 인터넷·API 불필요.</span></div>
+        <div class="gl"><span class="t">쿼리 프리픽스</span><span class="d">bge·e5를 검색에 쓸 때 질문 앞에 붙이는 <b>주문</b>(e5는 <code>query:</code>). 안 붙이면 성능 급락. gte는 불필요.</span></div>
+        <div class="gl"><span class="t">MTEB</span><span class="d">임베딩 모델 공식 성적표(벤치마크). "어느 모델이 검색을 더 잘하나"의 근거.</span></div>
+      </div>
+
+      <div class="glgroup">
+        <h3>🔎 3. 검색 (관련 조항 찾기)</h3>
+        <div class="gl"><span class="t">검색 (retrieval)</span><span class="d">질문에 맞는 청크를 인덱스에서 골라오기. RAG의 심장.</span></div>
+        <div class="gl"><span class="t">의미검색 (dense)</span><span class="d">뜻이 비슷한 걸 찾기(임베딩 사용). 똑똑하지만 <b>흐릿</b>해서 정확한 번호엔 약할 수 있음.</span></div>
+        <div class="gl"><span class="t">코사인 유사도</span><span class="d">두 벡터(뜻 좌표)가 <b>얼마나 같은 방향인가</b>를 0~1로 잰 값. 클수록 비슷.</span></div>
+        <div class="gl"><span class="t">키워드검색 · BM25 (sparse)</span><span class="d">정확히 그 <b>단어/번호</b>가 든 조각 찾기(예: "§91.151"). 정확하지만 융통성 없음.</span></div>
+        <div class="gl"><span class="t">하이브리드 (hybrid)</span><span class="d">의미검색 + 키워드검색 <b>점수를 합쳐</b> 재정렬. 법조문처럼 정확 단어가 생명인 자료에 강함.</span></div>
+        <div class="gl"><span class="t">top-K</span><span class="d">검색에서 <b>상위 K개</b> 조각만 골라 챗봇에 줌(예: K=5면 5조각). 많으면 정확↑·토큰↑.</span></div>
+        <div class="gl"><span class="t">리랭킹 (reranking)</span><span class="d">1차로 넉넉히 뽑은 뒤 <b>정밀 재채점</b>해 진짜 좋은 순으로 다시 정렬(cross-encoder 사용).</span></div>
+        <div class="gl"><span class="t">top-K 다양성</span><span class="d">5조각이 <b>전부 한 문서</b>에서 안 나오게 분산 → 여러 Part를 합쳐야 하는 질문에 대비.</span></div>
+      </div>
+
+      <div class="glgroup">
+        <h3>✍️ 4. 생성 (답 만들기)</h3>
+        <div class="gl"><span class="t">프롬프트 (prompt)</span><span class="d">모델에게 주는 <b>지시문+자료</b>. 시스템 프롬프트 = "넌 이렇게 답해" 규칙.</span></div>
+        <div class="gl"><span class="t">CONTEXT 블록</span><span class="d">검색한 조각들을 번호 붙여(<code>[1] §91.151: ...</code>) 질문과 함께 모델에 넣는 부분.</span></div>
+        <div class="gl"><span class="t">토큰 (token)</span><span class="d">모델이 글을 세는 <b>단위</b>(대략 단어 조각). 입력+출력 토큰만큼 과금.</span></div>
+        <div class="gl"><span class="t">환각 (hallucination)</span><span class="d">근거 없이 <b>그럴듯하게 지어낸</b> 답. 항공법에선 치명적(틀린 연료 시간 = 위험).</span></div>
+        <div class="gl"><span class="t">종합 (synthesis)</span><span class="d">여러 조각을 나열만 하지 말고 <b>비교·통합</b>해 한 답으로. 루브릭이 요구.</span></div>
+        <div class="gl"><span class="t">거부 (abstention)</span><span class="d">근거가 없으면 우기지 말고 <b>"출처에 없습니다"</b>라고 말하기. 환각 방지·신뢰 점수.</span></div>
+        <div class="gl"><span class="t">인용 · <code>[n]</code> · provenance</span><span class="d">주장마다 출처를 <b>[1]</b>처럼 표시하고, 그게 진짜 그 조항을 가리키게. 가짜 출처 금지(25점).</span></div>
+        <div class="gl"><span class="t">프롬프트 인젝션</span><span class="d">검색된 문서 안에 숨은 악성 지시("이전 지시 무시하고…")에 모델이 휘둘리는 공격. 방어 필요.</span></div>
+        <div class="gl"><span class="t">약어 정의</span><span class="d">처음 나오는 약어를 풀어주기(VFR=시계비행규칙). 명확성 점수.</span></div>
+      </div>
+
+      <div class="glgroup">
+        <h3>📊 5. 평가 &amp; 실험</h3>
+        <div class="gl"><span class="t">베이스라인 (baseline)</span><span class="d">아무것도 안 고친 <b>출발점 점수</b>. "얼마나 좋아졌나"의 기준.</span></div>
+        <div class="gl"><span class="t">홀드아웃 (hold-out)</span><span class="d">튜닝에 안 쓰고 <b>검증에만</b> 쓰는 비밀 시험지. 처음 보는 질문을 흉내 → 과적합 점검.</span></div>
+        <div class="gl"><span class="t">정답 라벨 (label)</span><span class="d">채점용 모범답안. 우리 경우 "이 질문의 근거는 §91.151" 같은 <b>정답 조항번호</b>.</span></div>
+        <div class="gl"><span class="t">과적합 (overfitting)</span><span class="d">연습문제 <b>몇 개에만</b> 잘 맞춰져, 새 질문엔 무너지는 상태. 대회의 가장 큰 함정.</span></div>
+        <div class="gl"><span class="t">Recall@K (회수율)</span><span class="d">정답 §조항이 <b>검색 상위 K개</b>에 들어온 비율. Claude 없이 코드로 채점 → 공짜.</span></div>
+        <div class="gl"><span class="t">커버리지 (coverage)</span><span class="d">정답이 여러 개일 때 <b>몇 개를 맞췄나</b> 비율(2개 중 1개 = 0.5). 교차질문 채점에 필요.</span></div>
+        <div class="gl"><span class="t">MRR</span><span class="d">정답이 <b>몇 번째로</b> 떴나의 역수 평균(1위=1.0, 5위=0.2). "얼마나 위로 올렸나".</span></div>
+        <div class="gl"><span class="t">그리드 서치 (grid search)</span><span class="d">손잡이(설정) 값들을 <b>여러 조합</b>으로 다 시험해 최고를 찾기.</span></div>
+        <div class="gl"><span class="t">OFAT / 탐욕적 순차</span><span class="d">손잡이를 <b>하나만</b> 돌리고 이긴 값을 고정한 채 다음으로. 해석 쉽고 호출 적음.</span></div>
+        <div class="gl"><span class="t">LLM-as-judge (LLM 심판)</span><span class="d">답을 <b>Claude가 채점</b>. 생성 모델과 심판 모델을 분리해 편향을 줄임.</span></div>
+        <div class="gl"><span class="t">프로그램 검증</span><span class="d">"인용한 §가 실제 그 청크에 있나"를 <b>코드로 대조</b> → 공짜·객관, 가짜 인용 색출.</span></div>
+        <div class="gl"><span class="t">JSONL</span><span class="d">한 줄 = 한 JSON. 실험 결과를 한 줄씩 덧붙여 저장(밤새 돌다 죽어도 이미 쓴 줄은 안전).</span></div>
+        <div class="gl"><span class="t">Batches API</span><span class="d">요청을 모아 한꺼번에 처리하는 <b>50% 할인</b> 방식. 밤샘 대량 실험에 최적.</span></div>
+        <div class="gl"><span class="t">비용 가드</span><span class="d">누적 비용이 한도를 넘으면 <b>자동 중단</b>. 공유 키($100) 보호.</span></div>
+      </div>
+
+      <div class="glgroup">
+        <h3>🛠️ 6. 도구 &amp; 환경</h3>
+        <div class="gl"><span class="t">모델 (Claude)</span><span class="d">답을 쓰는 LLM. <code>opus-4-8</code>(똑똑·비쌈) / <code>sonnet-4-6</code>(균형·스타터 기본) / <code>haiku-4-5</code>(빠름·쌈).</span></div>
+        <div class="gl"><span class="t">API · API 키 · <code>.env</code></span><span class="d">API=프로그램이 Claude 서버에 주문 넣는 창구. 키=신분증+결제수단. <code>.env</code>=키를 숨겨 두는 파일(커밋 금지).</span></div>
+        <div class="gl"><span class="t">venv (가상환경)</span><span class="d">프로젝트 <b>전용 도구 서랍</b>. 여기 라이브러리를 깔면 다른 프로젝트와 안 꼬임.</span></div>
+        <div class="gl"><span class="t">GitHub Pages · CI · 워크플로</span><span class="d">main에 push하면 자동(워크플로 <code>pages.yml</code>)으로 사이트를 빌드·배포하는 구조. 지금 이 페이지가 그렇게 올라온다.</span></div>
+      </div>
+
+      <p class="note">더 풀어야 할 용어가 있으면 알려줘 — 이 사전에 계속 추가한다.</p>
     </section>
 
     <section class="sec" id="embeddings">
