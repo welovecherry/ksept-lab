@@ -490,7 +490,17 @@ def project_body():
 
     <section class="sec" id="log">
       <h2>📝 작업 일지</h2>
-      <div class="ph"><b>여기에 날짜별로 기록:</b> 오늘 한 일 / 막힌 점 / 해결. (예: "Phase 0 완료 — 스타터 Apollo 1,133청크 인덱싱 성공")</div>
+
+      <h3>2026-06-30 — 준비 + Phase 0 완료</h3>
+      <ul>
+        <li><b>코퍼스 배치:</b> <code>faa-rag-corpus.zip</code> → <code>rag-contest/corpus/</code> (6개 PDF, 약 1,297쪽).</li>
+        <li><b>베이스 확보:</b> <code>rag-starter</code>(동작형 RAG: indexer + 인용 백엔드 + React) 분석·배치.</li>
+        <li><b>전략 문서:</b> STRATEGY.md(6시간 로드맵·3막 구조) + EXPERIMENTS.md(탐욕적 순차 실험) + holdout.jsonl(검증 14문제).</li>
+        <li><b>Phase 0 완료:</b> Python 3.12 격리 venv → 의존성(torch·sentence-transformers·anthropic) 설치 → Apollo 예제 인덱싱 <b>1,133청크</b> → 채팅 경로(검색+생성+인용) 실제 동작 확인.</li>
+        <li><b>관찰:</b> 인용이 "파일명+청크번호"로 떨어짐 → §조항 번호로 고도화할 빈틈 확인(25점 레버).</li>
+      </ul>
+
+      <div class="ph"><b>다음 칸 — 날짜별로 계속 기록:</b> 오늘 한 일 / 막힌 점 / 해결.</div>
     </section>
 
     <section class="sec" id="ideas">
