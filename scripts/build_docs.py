@@ -11,6 +11,7 @@ build_docs.py — 학습 허브(홈) + 변경 이력 페이지 생성기
 """
 
 import html
+import re
 import subprocess
 from pathlib import Path
 
@@ -28,9 +29,29 @@ SITE = [
     ("learn/index.html", "📚 학습 시작"),
     ("tutorial/index.html", "📖 원본 보관소"),
     ("notes.html", "🧩 프로젝트 노트"),
-    ("rag-project.html", "🛩️ RAG 콘테스트"),
     ("changelog.html", "📜 변경 이력"),
 ]
+
+# RAG 콘테스트: 사이드바에서 번호로 나뉘는 하위 페이지들 (학습 모듈처럼).
+# (파일, 번호, 짧은 제목, [이 페이지에 담을 section id들])
+RAG_PAGES = [
+    ("rag-project.html", "", "🛩️ RAG 콘테스트", ["overview"]),
+    ("rag-glossary.html", "01", "용어 사전", ["glossary"]),
+    ("rag-embeddings.html", "02", "임베딩 모델", ["embeddings"]),
+    ("rag-cache.html", "03", "캐시 원리", ["embed-tutorial"]),
+    ("rag-setup.html", "04", "모델 세팅", ["embed-setup"]),
+    ("rag-experiments.html", "05", "실험 계획", ["experiments"]),
+    ("rag-log.html", "06", "작업 일지", ["log", "ideas", "questions"]),
+]
+RAG_TITLES = {  # 각 페이지 h1 (사이드바 짧은 제목과 별개)
+    "rag-project.html": "🛩️ RAG 콘테스트 프로젝트",
+    "rag-glossary.html": "📖 용어 사전",
+    "rag-embeddings.html": "🔢 임베딩 모델",
+    "rag-cache.html": "🎓 캐시 원리 튜토리얼",
+    "rag-setup.html": "⚙️ 임베딩 모델 세팅",
+    "rag-experiments.html": "🧪 실험 계획",
+    "rag-log.html": "📝 작업 일지 · 메모 · 질문",
+}
 
 GIT_FORMAT = "%H%x1f%h%x1f%an%x1f%ad%x1f%s%x1f%b%x1e"
 RECENT_LIMIT = 20
@@ -123,11 +144,25 @@ def render_timeline(commits):
 
 
 # ── 공유 사이드바 (사이트 수준 내비만) ────────────────────────────────────────
+def rag_subnav(active=""):
+    """RAG 콘테스트 = 그룹 헤더 + 번호 매긴 하위 페이지(01·02·03…)."""
+    head_file = RAG_PAGES[0][0]
+    head_cls = ' class="active"' if active == head_file else ""
+    subs = []
+    for href, num, title, _ids in RAG_PAGES[1:]:
+        cls = ' class="active"' if href == active else ""
+        subs.append(f'<a href="{href}"{cls}><span class="n">{num}</span>{html.escape(title)}</a>')
+    return (f'<a href="{head_file}"{head_cls}>🛩️ RAG 콘테스트</a>'
+            f'<div class="subnav">{"".join(subs)}</div>')
+
+
 def sidebar_html(active=""):
     items = []
     for href, name in SITE:
         cls = ' class="active"' if href == active else ""
         items.append(f'<a href="{href}"{cls}>{html.escape(name)}</a>')
+        if href == "notes.html":
+            items.append(rag_subnav(active))
     links = "".join(items)
     return f"""  <aside class="sidebar">
     <div class="side-title"><a href="index.html">📒 ksept-lab</a></div>
@@ -723,6 +758,48 @@ export TRANSFORMERS_OFFLINE=1</code></pre>
     <p class="note" style="margin-top:2rem"><a href="index.html">← 홈으로</a></p>"""
 
 
+def _rag_overview_partslist():
+    lis = "".join(
+        f'<li><a href="{f}"><b>{n} {html.escape(t)}</b></a></li>'
+        for f, n, t, _ in RAG_PAGES[1:]
+    )
+    return f'    <section class="sec"><h2>📑 이 프로젝트의 페이지</h2><ul>{lis}</ul></section>'
+
+
+def _rag_prevnext(i):
+    nav = []
+    if i > 0:
+        f, n, t, _ = RAG_PAGES[i - 1]
+        nav.append(f'<a href="{f}">← {(n + " " + t).strip()}</a>')
+    if i < len(RAG_PAGES) - 1:
+        f, n, t, _ = RAG_PAGES[i + 1]
+        nav.append(f'<a href="{f}">{(n + " " + t).strip()} →</a>')
+    return '    <p class="note" style="margin-top:2.5rem">' + " · ".join(nav) + "</p>"
+
+
+def render_rag_pages():
+    """project_body()를 섹션 단위로 잘라 RAG_PAGES의 짧은 페이지들로 조립·기록."""
+    proj = project_body()
+    style = re.search(r"<style>.*?</style>", proj, re.S).group(0)
+    sections = {
+        m.group(1): m.group(0)
+        for m in re.finditer(r'<section class="sec" id="([\w-]+)">.*?</section>', proj, re.S)
+    }
+    for i, (file, num, short, ids) in enumerate(RAG_PAGES):
+        parts = [
+            "    " + style,
+            f'    <h1>{RAG_TITLES[file]} <span class="badge">FAA 항공법 챗봇</span></h1>',
+            '    <p class="sub"><a href="rag-project.html">← RAG 콘테스트</a> · <a href="index.html">🏠 홈</a></p>',
+        ]
+        if file == "rag-project.html":
+            parts.append(_rag_overview_partslist())
+        parts += [sections[sid] for sid in ids if sid in sections]
+        parts.append(_rag_prevnext(i))
+        body = "\n".join(parts)
+        title = f'{(short or "RAG").replace("🛩️ ", "")} · RAG · ksept-lab'
+        (ROOT / "docs" / file).write_text(shell(title, body, active=file), encoding="utf-8")
+
+
 def shell(title, body, active=""):
     return SHELL.format(title=html.escape(title), sidebar=sidebar_html(active), body=body)
 
@@ -745,16 +822,13 @@ def build():
         shell("첫 API 호출 실습 · ksept-lab", practice_body(), active="practice.html"),
         encoding="utf-8",
     )
-    OUT_PROJECT.write_text(
-        shell("RAG 콘테스트 · ksept-lab", project_body(), active="rag-project.html"),
-        encoding="utf-8",
-    )
+    render_rag_pages()  # 🛩️ RAG 콘테스트 = 사이드바에서 번호로 나뉜 여러 짧은 페이지
     OUT_CHANGELOG.write_text(
         shell("변경 이력 · ksept-lab", changelog_body(render_timeline(commits), last_updated, count),
               active="changelog.html"),
         encoding="utf-8",
     )
-    print(f"wrote index.html, practice.html, notes.html, rag-project.html, changelog.html  ({count} commits)")
+    print(f"wrote index/practice/notes/changelog + {len(RAG_PAGES)} RAG pages  ({count} commits)")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -788,6 +862,14 @@ SHELL = r"""<!doctype html>
     .sidebar nav a {{ color: var(--fg); text-decoration: none; padding: .4rem .6rem; border-radius: 6px; font-size: .92rem; }}
     .sidebar nav a:hover {{ background: #1f2530; color: var(--accent); }}
     .sidebar nav a.active {{ background: #1f6feb22; color: var(--accent); font-weight: 600; }}
+    .sidebar .subnav {{ display: flex; flex-direction: column; gap: .05rem;
+      margin: .1rem 0 .35rem .35rem; padding-left: .45rem; border-left: 1px solid var(--border); }}
+    .sidebar .subnav a {{ color: var(--muted); font-size: .85rem; padding: .28rem .5rem; border-radius: 6px;
+      text-decoration: none; }}
+    .sidebar .subnav a:hover {{ background: #1f2530; color: var(--accent); }}
+    .sidebar .subnav a.active {{ background: #1f6feb22; color: var(--accent); font-weight: 600; }}
+    .sidebar .subnav a .n {{ display: inline-block; min-width: 1.5em; color: #6e7681;
+      font-variant-numeric: tabular-nums; margin-right: .35rem; }}
     .side-foot {{ color: var(--muted); font-size: .8rem; margin-top: 1.5rem; line-height: 1.7; }}
     .side-foot a {{ color: var(--accent); text-decoration: none; }}
     @media (max-width: 720px) {{
