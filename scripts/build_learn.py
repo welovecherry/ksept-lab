@@ -109,7 +109,23 @@ STYLE = """
     color:#58a6ff; font-variant-numeric:tabular-nums; font-weight:700; }
   .sidebar .slidenav > a .st { flex:1 1 auto; }
   .sidebar .side-foot a { color:#58a6ff; text-decoration:none; }
+  /* 마크다운 표 */
+  table.md-table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.92rem; }
+  table.md-table th, table.md-table td { border:1px solid #30363d; padding:.45rem .7rem;
+    text-align:left; vertical-align:top; line-height:1.6; }
+  table.md-table th { background:#161b22; color:#58a6ff; }
+  table.md-table tbody tr:nth-child(even) td { background:#0d1117; }
+  /* mermaid 다이어그램 (브라우저에서 SVG로 렌더) */
+  pre.mermaid { background:transparent; padding:.5rem 0; text-align:center; line-height:normal; }
 </style>
+"""
+
+# 노트에 mermaid 다이어그램이 있을 때만 페이지에 주입한다 (CDN, 브라우저에서 그림).
+MERMAID_JS = """
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+</script>
 """
 
 # 해시(#slide-N)로 점프하면 그 슬라이드(접힌 details)를 자동으로 펼친다.
@@ -250,15 +266,38 @@ def md_to_html(md):
     while i < len(lines):
         line = lines[i]
         if line.strip().startswith("```"):
+            info = line.strip()[3:].strip()  # ``` 뒤의 언어 표시 (예: mermaid)
             close_lists(); i += 1; code = []
             while i < len(lines) and not lines[i].strip().startswith("```"):
                 code.append(lines[i]); i += 1
             i += 1
-            out.append("<pre><code>" + html_lib.escape("\n".join(code)) + "</code></pre>")
+            src = html_lib.escape("\n".join(code))
+            if info == "mermaid":
+                # 브라우저의 mermaid.js가 이 <pre>를 그림(SVG)으로 바꾼다.
+                out.append(f'<pre class="mermaid">{src}</pre>')
+            else:
+                out.append("<pre><code>" + src + "</code></pre>")
             continue
         s = line.strip()
         if not s:
             close_lists(); i += 1; continue
+        # 파이프 표: 헤더줄 + 구분줄(| --- | --- |) 다음에 데이터줄들
+        if (s.startswith("|") and i + 1 < len(lines) and "---" in lines[i + 1]
+                and re.match(r"^\s*\|?[\s:|-]+\|?\s*$", lines[i + 1])):
+            close_lists()
+            cells = lambda row: [c.strip() for c in row.strip().strip("|").split("|")]
+            header = cells(s)
+            i += 2  # 헤더줄 + 구분줄 건너뛰기
+            rows = []
+            while i < len(lines) and lines[i].strip().startswith("|"):
+                rows.append(cells(lines[i])); i += 1
+            thead = "".join(f"<th>{_inline(c)}</th>" for c in header)
+            tbody = "".join(
+                "<tr>" + "".join(f"<td>{_inline(c)}</td>" for c in r) + "</tr>"
+                for r in rows)
+            out.append(f'<table class="md-table"><thead><tr>{thead}</tr>'
+                       f'</thead><tbody>{tbody}</tbody></table>')
+            continue
         m = re.match(r"(#{1,6})\s+(.*)", s)
         if m:
             close_lists()
@@ -412,6 +451,8 @@ def build_page(tut_path):
     head = STYLE + (QUIZ_CSS if has_quiz else "")
     html = html.replace("</head>", head + "</head>", 1)
     body = HASH_JS + (QUIZ_JS if has_quiz else "")
+    if 'class="mermaid"' in html:
+        body += MERMAID_JS
     html = html.replace("</body>", body + "</body>", 1)
 
     return module, html
