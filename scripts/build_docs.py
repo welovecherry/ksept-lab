@@ -725,9 +725,74 @@ export TRANSFORMERS_OFFLINE=1</code></pre>
     </section>
 
     <section class="sec" id="experiments">
-      <h2>🧪 실험 계획 (요약)</h2>
-      <p>전부 조합(폭발) 대신 <b>싼 검색 축은 작은 그리드, 비싼 생성 축은 순차</b>. 검색 실험(청킹·임베딩·검색방식·top-K)은 Claude 없이 <b>Recall@K로 공짜 채점</b>, 생성 실험만 과금(Batches 50%↓).</p>
-      <p class="note">자세한 절차: <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/EXPERIMENTS.md">EXPERIMENTS.md</a></p>
+      <h2>🧪 실험 계획</h2>
+      <p class="analogy">🔬 <b>비유:</b> 요리 대회 전날 <b>레시피 변수를 하나씩 바꿔 맛을 보는 것</b>. 단, 맛보기(채점)를 사람이 아니라 <b>자/저울(코드)</b>로 해서 수십 번을 밤새 자동으로.</p>
+      <p>핵심: 설정을 <b>추측으로 정하지 않고 데이터로 고른다.</b> 처음 보는 질문(홀드아웃)에서 가장 잘 되는 설정을 자동 실험으로 찾는다. 대부분 참가자는 손으로 5문제 돌려보고 끝내는데, 이 하네스가 1등을 가르는 차별점.</p>
+
+      <h3>① 큰 그림 — 3막</h3>
+      <table class="cmp">
+        <tr><th>막</th><th>시점</th><th>하는 일</th><th>공유 키</th></tr>
+        <tr><td>🌞 1막 제작</td><td>낮(6h)</td><td>RAG 파이프라인 고도화 + 실험 하네스 제작</td><td>❌</td></tr>
+        <tr><td>🌙 2막 자동실험</td><td>밤(무인)</td><td>설정 그리드 순회 → 답 생성 → <code>runs.jsonl</code> 적재 + 프로그램 검증</td><td>✅ 생성만</td></tr>
+        <tr><td>🌅 3막 심판</td><td>아침</td><td>프로그램 점수로 1차 랭킹 → 상위만 LLM 심판 → 최적 설정 반영 → 출전</td><td>❌(Claude Code)</td></tr>
+      </table>
+
+      <h3>② 무엇을 실험하나 — 그리드 축(knobs)</h3>
+      <table class="cmp">
+        <tr><th>축</th><th>후보 값</th></tr>
+        <tr><td>청크 크기</td><td>800 / 1200 / 1600자</td></tr>
+        <tr><td>청킹 방식</td><td>문자 기준 / <b>§조항 경계</b> / 문서별 라우팅</td></tr>
+        <tr><td>임베딩 모델</td><td>기준 MiniLM + 후보 bge·e5·gte</td></tr>
+        <tr><td>검색 방식</td><td>의미 / BM25 / <b>하이브리드</b></td></tr>
+        <tr><td>top-K</td><td>3 / 5 / 8</td></tr>
+        <tr><td>리랭킹</td><td>off / on</td></tr>
+        <tr><td>생성 모델</td><td>sonnet-4-6 / opus-4-8</td></tr>
+        <tr><td>프롬프트</td><td>종합·거부 강조 A/B</td></tr>
+      </table>
+
+      <h3>③ 어떻게 — 탐욕적 순차 + "검색 먼저(무료)"</h3>
+      <p>모든 조합을 다 돌리면 폭발(약 5천 가지). 그래서 <b>손잡이를 하나씩</b> 최적화하고 이긴 값을 고정한 채 다음으로 간다(탐욕적 순차). 순서는 <b>싸고 효과 큰 검색부터, 비싼 생성은 마지막</b>:</p>
+      <table class="cmp">
+        <tr><th>#</th><th>실험(축)</th><th>채점</th><th>Claude 호출</th></tr>
+        <tr><td>0</td><td>베이스라인(현재 설정)</td><td>Recall@K</td><td>최소</td></tr>
+        <tr><td>1</td><td>청킹</td><td>Recall@K</td><td>❌</td></tr>
+        <tr><td>2</td><td>임베딩 모델</td><td>Recall@K</td><td>❌</td></tr>
+        <tr><td>3</td><td>검색 방식</td><td>Recall@K</td><td>❌</td></tr>
+        <tr><td>4</td><td>top-K</td><td>Recall@K + 토큰</td><td>❌</td></tr>
+        <tr><td>5</td><td>생성 모델</td><td>LLM 심판 + 인용검증</td><td>✅</td></tr>
+        <tr><td>6</td><td>프롬프트</td><td>LLM 심판</td><td>✅</td></tr>
+      </table>
+      <div class="ok"><b>핵심 절약:</b> 실험 1~4는 <b>검색 단계만</b> 보므로 Claude를 안 부르고 <b>Recall@K로 공짜 채점</b>. 비싼 생성 호출은 검색이 확정된 5~6에만 → 예산 1/10. 무료라서 검색 축은 작은 <b>전조합</b>으로 돌리고, 재인덱싱은 <b>청킹×임베딩(12개)</b>만 만들고 검색·K는 그 인덱스에서 재사용.</div>
+
+      <h3>④ 채점 3종 + 기록 원칙</h3>
+      <div class="term"><b>Recall@K</b> = 정답 §이 상위 K에 든 비율(무료). 정답이 여러 개면 <b>커버리지</b>(몇 개 맞췄나), 순위는 <b>MRR</b>로 보강.</div>
+      <div class="term"><b>LLM 심판</b> = Claude가 사실성·인용·완전성 1~5점(생성≠심판 모델로 분리).</div>
+      <div class="term"><b>프로그램 인용검증</b> = 인용한 §가 실제 그 청크에 있나 코드 대조(무료·객관, 가짜 인용 색출).</div>
+      <div class="warn"><b>원칙 — 기록은 버리지 않는다.</b> recall=0·추출 실패·깨진 표도 <code>status:"failed"</code>로 <code>runs.jsonl</code>에 한 줄 남긴다. <b>왜 안 됐는지가 대시보드의 핵심 신호</b>다.</div>
+      <pre><code>{"run_id":"r042","config":{"chunk":1200,"chunking":"section","embed":"bge-large",
+ "retrieval":"hybrid","topk":5,"gen_model":"sonnet-4-6","prompt":"A"},
+ "question_id":"H07","citations":["§91.151"],"program_check":{"citation_grounded":true},
+ "status":"ok"}</code></pre>
+      <div class="warn"><b>차단 작업(blocker):</b> 무료 채점은 전부 <b>정답 § 라벨의 정확성</b>에 의존한다. 라벨이 틀리면 Recall이 거짓말을 한다 → Phase 1 직후 <code>grep</code>으로 전수 검증하기 전엔 점수를 신뢰하지 않는다.</div>
+
+      <h3>⑤ 비용 — 두 지갑 분리</h3>
+      <ul>
+        <li><b>검색 실험(1~4):</b> 로컬 임베딩 → <b>$0</b>.</li>
+        <li><b>생성 실험(5~6):</b> 공유 키 사용 → <b>Batches API 50%↓</b> + 누적 상한 가드(초과 시 자동 중단). 추산 ~$9~12.</li>
+        <li><b>LLM 심판:</b> <b>Claude Code(별도 지갑) → 0원.</b></li>
+      </ul>
+
+      <h3>⑥ 진행 단계 (Phase 0~1)</h3>
+      <table class="cmp">
+        <tr><th>단계</th><th>내용</th><th>상태</th></tr>
+        <tr><td>1 스모크</td><td>스타터를 아폴로 예제로 돌려 "RAG가 돈다" 확인</td><td>✅ 완료</td></tr>
+        <tr><td>2 기록 스키마</td><td><code>runs.jsonl</code> 한 줄 형식 + 로거(성공·실패 모두 append)</td><td>⏳</td></tr>
+        <tr><td>3 PDF추출 + §태깅</td><td>FAA 6 PDF → 평문 md → "이건 §91.151 (part91)" 꼬리표</td><td>⏳</td></tr>
+        <tr><td>4 FAA 인덱싱</td><td>아폴로 빼고 FAA만 §메타 품은 <code>index.pkl</code></td><td>⏳</td></tr>
+        <tr><td>5 § 인용 표시</td><td>Sources가 <code>part91.md</code> → <b><code>§91.151 (Part 91)</code></b>로</td><td>⏳</td></tr>
+      </table>
+
+      <p class="note">원본 상세: <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/STRATEGY.md">STRATEGY.md</a>(전략·3막) · <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/EXPERIMENTS.md">EXPERIMENTS.md</a>(채점·체크리스트) · <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/todo/06_30_phase0_1.md">todo/06_30_phase0_1.md</a>(Phase 0~1 실행계획)</p>
     </section>
 
     <section class="sec" id="log">
