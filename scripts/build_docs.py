@@ -445,6 +445,7 @@ def project_body():
       <a href="#overview">📌 개요</a>
       <a href="#glossary">📖 용어 사전</a>
       <a href="#embeddings">🔢 임베딩 모델</a>
+      <a href="#embed-tutorial">🎓 캐시 원리</a>
       <a href="#embed-setup">⚙️ 모델 세팅</a>
       <a href="#experiments">🧪 실험 계획</a>
       <a href="#log">📝 작업 일지</a>
@@ -578,6 +579,55 @@ def project_body():
       <div class="ok"><b>대회 규칙</b> 임베딩 모델은 <b>로컬 모델만 허용</b>(클라우드 임베딩 API ❌). bge·e5·gte는 전부 로컬·무료라 OK.</div>
 
       <p class="note">왜 하나로 안 정하고 다 시험하나 — "추측 말고 측정". 홀드아웃 질문으로 <b>Recall@K</b>(정답 조항이 검색 상위 K에 든 비율)를 재서 1등을 가린다. Claude를 안 부르니 채점이 공짜.</p>
+    </section>
+
+    <section class="sec" id="embed-tutorial">
+      <h2>🎓 튜토리얼 — 모델은 어떻게 "받아지나" (캐시의 원리)</h2>
+      <p class="sub">"4개 모델을 한 번씩 로드해 캐시"가 <b>왜 가능한지</b>를, 실제 캐시를 열어보며 6강으로 배운다.</p>
+
+      <div class="term"><b>HuggingFace Hub</b> = 모델들의 GitHub(공개 저장소).</div>
+      <div class="term"><b>가중치(weights)</b> = 모델의 '뇌' = 학습으로 정해진 숫자 덩어리(<code>.safetensors</code>).</div>
+      <div class="term"><b>토크나이저(tokenizer)</b> = 글자를 모델이 먹는 토큰으로 쪼개는 사전.</div>
+      <div class="term"><b>캐시(cache)</b> = 한 번 받은 걸 디스크에 보관해 재사용.</div>
+
+      <h3>1강. 모델은 사실 '파일 묶음'이다</h3>
+      <p class="analogy">📦 <b>비유:</b> 모델 = <b>조립가구 한 상자</b> = 부품(가중치) + 설명서(config) + 나사규격(tokenizer).</p>
+      <p>우리가 Phase 0에서 받은 MiniLM의 실제 캐시 내용:</p>
+      <pre><code>model.safetensors        # 470MB — '뇌'(학습된 숫자)
+config.json              # 모델 구조 설명서
+tokenizer.json           # 글자를 토큰으로 쪼개는 사전
+modules.json             # 조립 순서
+README.md, ...           # 기타</code></pre>
+
+      <h3>2강. 모델 이름은 '주소'다</h3>
+      <p><code>BAAI/bge-large-en-v1.5</code> = Hub의 <b>조직/저장소</b> 주소 (GitHub의 <code>user/repo</code>와 같은 꼴). <code>SentenceTransformer("주소")</code>에 주면 거기서 받아온다.</p>
+
+      <h3>3강. 로드 한 줄이 하는 일 = 3단계</h3>
+      <pre><code>SentenceTransformer("intfloat/e5-large-v2")
+  # ① 로컬 캐시에 있나 확인
+  # ② 없으면 Hub에서 파일 다운로드 (느림 · 첫 1회만)
+  # ③ 디스크 → RAM 으로 올려 사용 준비</code></pre>
+      <p><b>첫 호출만 ②</b>가 일어나고, 그다음부턴 ①에서 바로 찾아 <b>오프라인</b>으로 쓴다.</p>
+
+      <h3>4강. 캐시는 어디에, 어떻게 생겼나</h3>
+      <pre><code>~/.cache/huggingface/hub/
+  models--sentence-transformers--paraphrase-multilingual-MiniLM-L12-v2/
+    snapshots/e8f8c211.../        # 커밋 해시 = 버전 고정(재현성)
+      model.safetensors  config.json  tokenizer.json  modules.json ...</code></pre>
+      <p><code>snapshots/&lt;해시&gt;</code>는 <b>그 시점 버전을 그대로 고정</b>한다 → 나중에 받아도 같은 결과(재현성).</p>
+
+      <h3>5강. 그래서 "한 번씩 로드 = 미리 받기"가 성립</h3>
+      <div class="ok"><b>핵심:</b> 다운로드는 <b>멱등(idempotent)</b> — 두 번째 로드는 받지 않고 <b>캐시를 읽는다</b>. 그래서 4개를 한 번씩만 로드하면 전부 캐시 완료, 당일은 인터넷 없이 쓸 수 있다.</div>
+      <pre><code>du -sh ~/.cache/huggingface     # 받은 총 용량 확인
+export HF_HUB_OFFLINE=1         # 당일: 캐시만 사용(네트워크 차단)</code></pre>
+
+      <h3>6강. 실전 주의</h3>
+      <ul>
+        <li><b>디스크</b> ~4~5GB 필요(4개 합).</li>
+        <li><b>네트워크가 끊겨도</b> 다시 실행하면 <b>이어받기</b> 된다(이미 받은 파일은 건너뜀).</li>
+        <li><code>set HF_TOKEN</code> 경고는 <b>익명 다운로드 속도제한 안내</b>일 뿐 — 공개 모델은 토큰 없이도 받아진다.</li>
+      </ul>
+      <p class="note">이 원리를 알면 다음 <b>⚙️ 모델 세팅</b>의 "미리 받기" 스크립트가 *왜 한 번 돌리면 끝인지* 이해된다.</p>
     </section>
 
     <section class="sec" id="embed-setup">
