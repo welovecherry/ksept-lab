@@ -445,6 +445,7 @@ def project_body():
       <a href="#overview">📌 개요</a>
       <a href="#glossary">📖 용어 사전</a>
       <a href="#embeddings">🔢 임베딩 모델</a>
+      <a href="#embed-setup">⚙️ 모델 세팅</a>
       <a href="#experiments">🧪 실험 계획</a>
       <a href="#log">📝 작업 일지</a>
       <a href="#ideas">💡 메모·아이디어</a>
@@ -577,6 +578,65 @@ def project_body():
       <div class="ok"><b>대회 규칙</b> 임베딩 모델은 <b>로컬 모델만 허용</b>(클라우드 임베딩 API ❌). bge·e5·gte는 전부 로컬·무료라 OK.</div>
 
       <p class="note">왜 하나로 안 정하고 다 시험하나 — "추측 말고 측정". 홀드아웃 질문으로 <b>Recall@K</b>(정답 조항이 검색 상위 K에 든 비율)를 재서 1등을 가린다. Claude를 안 부르니 채점이 공짜.</p>
+    </section>
+
+    <section class="sec" id="embed-setup">
+      <h2>⚙️ 임베딩 모델 세팅 (미리 받아두기)</h2>
+      <p class="analogy">📦 <b>비유:</b> 모델 세팅 = <b>장 미리 봐두기</b>. 요리(검색) 당일에 재료(모델)를 그때 사러 가면 늦으니, <b>전날 사다 냉장고(로컬 캐시)에 넣어둔다.</b></p>
+      <p>sentence-transformers는 모델을 처음 부를 때 가중치(0.5~1.3GB)를 인터넷에서 받아 <code>~/.cache</code>에 저장한다. 한 번 받으면 그다음은 오프라인. <b>대회 전날 4개를 미리 받아 캐시</b>해 두면 당일 인터넷 사고·지연을 피한다. (총 약 4~5GB.)</p>
+
+      <h3>1) 준비 — venv + 패키지</h3>
+      <p>프로젝트 전용 가상환경에 <code>sentence-transformers</code>가 있으면 끝(스타터 설치에 포함). 없으면:</p>
+      <pre><code>pip install sentence-transformers</code></pre>
+
+      <h3>2) 4개 모델 미리 받기 (코드 세션에서 1회)</h3>
+      <p>각 이름을 한 번 로드하면 <b>자동 다운로드 + 캐시</b>된다.</p>
+      <pre><code>from sentence_transformers import SentenceTransformer
+
+MODELS = [
+    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",  # 기준선
+    "BAAI/bge-large-en-v1.5",
+    "intfloat/e5-large-v2",
+    "thenlper/gte-large",
+]
+for name in MODELS:
+    print("downloading:", name)
+    SentenceTransformer(name)     # 첫 호출 = 다운로드 + 캐시
+print("all cached.")</code></pre>
+
+      <h3>3) 캐시 확인 (위치·용량)</h3>
+      <pre><code># 보통 여기에 저장됨
+du -sh ~/.cache/huggingface 2>/dev/null
+ls ~/.cache/huggingface/hub</code></pre>
+      <div class="ok"><b>성공 신호:</b> <code>models--BAAI--bge-large-en-v1.5</code> 같은 폴더들이 보이고 총 용량이 수 GB.</div>
+
+      <h3>4) 프리픽스 헬퍼 (모델별 주문)</h3>
+      <p>bge·e5는 <b>검색용 질문 앞에 정해진 문구</b>를 붙여야 제 성능이 난다. gte·MiniLM은 그대로. 이 헬퍼를 인덱싱·검색 양쪽에서 같이 쓴다.</p>
+      <pre><code>def embed(model, texts, model_name, kind):   # kind = "query" 또는 "passage"
+    if "e5" in model_name:
+        texts = [f"{kind}: {t}" for t in texts]                 # e5: query:/passage:
+    elif "bge" in model_name and kind == "query":
+        texts = ["Represent this sentence for searching relevant passages: " + t
+                 for t in texts]                                # bge: 질문에만 지시문
+    # gte, MiniLM: 프리픽스 없음
+    return model.encode(texts, normalize_embeddings=True)</code></pre>
+      <div class="warn"><b>주의 ⚠️</b> 문서(passage)는 인덱싱 때 <code>kind="passage"</code>, 질문은 검색 때 <code>kind="query"</code>로 — <b>둘을 일관되게</b> 해야 한다. 프리픽스를 빠뜨리면 "좋은 모델이 오히려 더 나쁨"이 생긴다.</div>
+
+      <h3>5) 스모크 테스트 (잘 받아졌나)</h3>
+      <p>질문 1개 vs 문단 2개의 코사인을 재서, <b>관련 문단이 더 높게</b> 나오면 정상.</p>
+      <pre><code>m = SentenceTransformer("intfloat/e5-large-v2")
+q  = embed(m, ["fuel reserve for day VFR flight"], "intfloat/e5-large-v2", "query")
+ps = embed(m, ["No person may begin a flight unless there is enough fuel ...",
+               "An applicant for a first-class medical certificate ..."],
+           "intfloat/e5-large-v2", "passage")
+print(q @ ps.T)     # 정규화돼 있어 내적 = 코사인. 1번이 더 커야 정상</code></pre>
+
+      <h3>6) 대회날 오프라인 고정</h3>
+      <p>캐시만 쓰도록 잠가 네트워크 사고를 차단:</p>
+      <pre><code>export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1</code></pre>
+
+      <p class="note">요약: <b>전날 ②로 4개 캐시 → ③로 확인 → ④ 헬퍼를 코드에 고정 → ⑤로 검증 → 당일 ⑥로 오프라인.</b> 이러면 모델 교체가 "이름만 바꾸면" 되는 상태가 된다.</p>
     </section>
 
     <section class="sec" id="experiments">
