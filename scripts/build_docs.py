@@ -512,6 +512,32 @@ def project_body():
       <p class="analogy">📖 <b>비유:</b> RAG = <b>오픈북 시험 보는 학생</b>. 머릿속 지식만으로 답하면 틀린 말을 지어내니(환각), <b>관련 조항을 펼쳐 읽고 그 근거로</b> 답하게 만든다.</p>
       <p>대회는 같은 FAA 코퍼스(6개 PDF, 약 1,297쪽)로 모두가 챗봇을 만들고, 당일 <b>처음 보는 질문 3개</b>로 1:1 토너먼트. <b>더 잘 근거대고 인용한</b> 쪽이 승급. 승부처는 <b>답변 품질(30) + 인용·근거(25) = 55점.</b></p>
       <p>🧭 <b>진화:</b> 처음엔 <b>단발(single-shot) RAG</b>만 다뤘다 — 검색 1회 → 답변 1회로 싸고 예측 가능. 이후 <b>에이전트를 추가</b>해, 지금은 한 질문을 <b>🎯 단발 · 🤖 에이전틱 두 방식으로 나란히</b> 답하고 비교한다. 에이전트는 모델이 <b>스스로 여러 번 검색</b>해 여러 조항에 흩어진 근거를 모으고(자가교정), 비용을 위해 <b>검색 3회로 캡</b>. 구체 질문엔 단발이 기본값, 교차조항 질문엔 에이전트가 강하다. 자세한 비교는 <a href="rag-slides.html">발표 슬라이드</a> 및 아래 <a href="#log">작업 일지</a> 참조.</p>
+
+      <style>
+        .shots { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+          gap:.9rem; margin:1.1rem 0 1.4rem; }
+        .shots figure { margin:0; }
+        .shots img { width:100%; border:1px solid #30363d; border-radius:8px; display:block; }
+        .shots figcaption { color:#8b949e; font-size:.85rem; margin-top:.35rem; line-height:1.5; }
+        .shots figcaption b { color:#c9d1d9; }
+      </style>
+      <p>🖼️ <b>라이브 데모 스냅샷</b> — 컴페어 앱(<code>streamlit_app.py</code>)이 한 질문을 단발·에이전틱 두 방식으로 실제 답하는 장면:</p>
+      <div class="shots">
+        <figure><img src="assets/compare/01-initial.png" alt="초기 화면">
+          <figcaption><b>① 초기 화면</b> — bge 모델 선택 · "runs both ways" · 예제 질문</figcaption></figure>
+        <figure><img src="assets/compare/05-model-picker.png" alt="모델 선택">
+          <figcaption><b>② 모델 선택</b> — 임베딩 <b>bge ⇄ minilm</b> 라이브 전환</figcaption></figure>
+        <figure><img src="assets/compare/02-running.png" alt="제출 직후">
+          <figcaption><b>③ 제출 직후</b> — 🎯 단발이 먼저 검색·답변 시작</figcaption></figure>
+        <figure><img src="assets/compare/03-single-detail.png" alt="단발 답변 상세">
+          <figcaption><b>④ 단발 답변</b> — § 인용 · 검색 트레이스 · 토큰(~2,099)</figcaption></figure>
+        <figure><img src="assets/compare/04-both-compare.png" alt="나란히 비교">
+          <figcaption><b>⑤ 나란히 비교 ⭐</b> — 단발 <b>2,099 tok</b> vs 에이전틱 <b>15,492 tok(3검색)</b>, 에이전트는 표까지 완성</figcaption></figure>
+        <figure><img src="assets/compare/07-agentic-trace.png" alt="에이전틱 트레이스">
+          <figcaption><b>⑥ 에이전틱 과정</b> — 모델이 <b>스스로 2회 검색</b>(round별 트레이스) 후 Key Takeaways</figcaption></figure>
+        <figure><img src="assets/compare/06-single-fuel.png" alt="단발 연료 답변">
+          <figcaption><b>⑦ 숫자 답변 예</b> — 연료 예비량: 낮 <b>30분</b> · 밤 <b>45분</b> · 회전익 <b>20분</b> [§91.151]</figcaption></figure>
+      </div>
       <p class="note">전략 원본: <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/STRATEGY.md">STRATEGY.md</a> · 실험 런북: <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/EXPERIMENTS.md">EXPERIMENTS.md</a></p>
     </section>
 
