@@ -1,4 +1,4 @@
-"""Streamlit chat UI for the FAA RAG contest — stage 1 skeleton.
+"""Streamlit chat UI for the FAA RAG contest — chat + champion retrieval + meta/sources.
 
 Serves the SAME champion retrieval as the Flask backend (harness.retrieval +
 indexer CHAMPION_* constants + the self-describing index.meta.json), but calls
@@ -11,6 +11,7 @@ module-level side effects (load_index, Anthropic(), Flask). Once the output
 session extracts the prompt to backend/prompts.py, replace the constant below
 with:  from prompts import SYSTEM_PROMPT
 """
+import re
 from pathlib import Path
 
 import streamlit as st
@@ -24,13 +25,24 @@ from indexer import (
     load_index,
     load_index_embed_model,
 )
-from harness.retrieval import build_bm25, retrieve
+from harness.retrieval import build_bm25, format_context, retrieve
 
 load_dotenv(Path(__file__).parent / ".env")  # ANTHROPIC_API_KEY (shared class key)
 
 MODEL = "claude-sonnet-4-6"
 MAX_TOKENS = 1024
 AVATARS = {"user": "🧑", "assistant": "🛩️"}
+
+# (input, output) USD per million tokens, keyed by model so the cost badge stays
+# correct if the champion model changes. Unknown model → $0 (badge shows ~$0).
+PRICES = {"claude-sonnet-4-6": (3.0, 15.0)}
+
+# Empty-state example questions (from CONTEST.md practice set) — one click to ask.
+EXAMPLES = [
+    "What are the fuel-reserve requirements for VFR flight, day versus night?",
+    "What aeronautical experience is required for a private pilot certificate (airplane single-engine)?",
+    "How do operating requirements differ between Class B and Class C airspace?",
+]
 
 # [E1 TEMP] verbatim copy of backend/app.py SYSTEM_PROMPT. Swap for an import once
 # backend/prompts.py exists so the output session's prompt edits flow in for free.
@@ -78,17 +90,59 @@ def get_client():
     return Anthropic()
 
 
+def _cost_usd(model: str, tin: int, tout: int) -> float:
+    pin, pout = PRICES.get(model, (0.0, 0.0))
+    return tin / 1e6 * pin + tout / 1e6 * pout
+
+
+def _citation_label(hit: dict) -> str:
+    """'§91.151 (Part 91)' for FAA chunks; fall back to the source filename."""
+    section, part = hit.get("section"), hit.get("part")
+    if section and part:
+        return f"{section} (Part {part.removeprefix('part')})"
+    return hit.get("source", "source")
+
+
+def _cited(answer_text: str, hits: list[dict]) -> list[dict]:
+    """Parse the [n] markers the answer actually used, mapped to their hit.
+
+    Deduped, in first-use order, out-of-range dropped — same rule as app.py's
+    _build_citations, inlined to avoid importing app.py (its module-level side
+    effects). Each entry carries the label + chunk text for the source card.
+    """
+    seen, out = set(), []
+    for n in (int(m) for m in re.findall(r"\[(\d+)\]", answer_text)):
+        if n in seen or not (1 <= n <= len(hits)):
+            continue
+        seen.add(n)
+        h = hits[n - 1]
+        out.append({"n": n, "label": _citation_label(h), "text": h.get("text", "")})
+    return out
+
+
+def _looks_like_refusal(text: str) -> bool:
+    """True if the answer explicitly declined for lack of grounding (per SYSTEM_PROMPT).
+
+    Lets us show the out-of-scope card only on real refusals, not on any answer
+    that merely happens to omit [n] markers.
+    """
+    low = text.lower()
+    return "don't contain" in low or "do not contain" in low or "provided sources" in low
+
+
 def answer(question, index, embed_model, bm25):
     """Retrieve champion top-K chunks, build the context block, generate an answer.
 
     Mirrors app.py's /api/chat (same retrieve() call) so both frontends behave
-    identically. Returns the answer text and the hits (slimmed) so stage 2 can
-    render source cards without re-searching.
+    identically. Returns (answer_text, meta, citations): meta carries the model,
+    token usage, cost, and retrieval config for the footer badge; citations are
+    the [n] the answer actually used, mapped to their source passage.
     """
     hits = retrieve(question, index, method=CHAMPION_METHOD, k=CHAMPION_K,
                     embed_model=embed_model, bm25=bm25)
-    context = "\n\n".join(f"[{i + 1}] {h['text']}" for i, h in enumerate(hits))
-    user_content = f"CONTEXT:\n{context}\n\nQUESTION:\n{question}"
+    # format_context is the shared numbering helper app.py/gen_answers use too, so
+    # citation numbers can't drift between the live app and the experiment harness.
+    user_content = f"CONTEXT:\n{format_context(hits)}\n\nQUESTION:\n{question}"
 
     resp = get_client().messages.create(
         model=MODEL,
@@ -97,14 +151,61 @@ def answer(question, index, embed_model, bm25):
         messages=[{"role": "user", "content": user_content}],
     )
     answer_text = resp.content[0].text
-    # Slim the hits: drop the embedding vector before it lands in session_state.
-    slim = [{k: h.get(k) for k in ("source", "chunk_index", "section", "part", "text")}
-            for h in hits]
-    return answer_text, slim
+    # [① contract] meta travels as its own field so stage-4 streaming (where usage
+    # arrives at stream end) can fill it in without reshaping the message.
+    meta = {
+        "model": resp.model,
+        "tokens_in": resp.usage.input_tokens,
+        "tokens_out": resp.usage.output_tokens,
+        "cost_usd": _cost_usd(resp.model, resp.usage.input_tokens, resp.usage.output_tokens),
+        "method": CHAMPION_METHOD,
+        "k": CHAMPION_K,
+    }
+    return answer_text, meta, _cited(answer_text, hits)
+
+
+def render_footer(meta: dict | None, citations: list[dict], text: str) -> None:
+    """Draw the quiet cost/model/retrieval chips + source cards under an answer.
+
+    Shared by the live turn and the replay loop so history renders identically.
+    No grounding badge (E2). Citation coloring (terracotta) lands in stage 3.
+    """
+    if meta:
+        # Uniform teal-soft pills. Headline = total tokens + cost; the in/out split
+        # is on hover (title tooltip). Values are our own numbers (no user input),
+        # so unsafe_allow_html is safe here.
+        total = meta["tokens_in"] + meta["tokens_out"]
+        chips = (
+            f'<span class="chip" title="{meta["tokens_in"]:,} in · {meta["tokens_out"]:,} out">'
+            f'{total:,} tok</span>'
+            f'<span class="chip">~${meta["cost_usd"]:.4f}</span>'
+            f'<span class="chip">{meta["method"]} · K{meta["k"]}</span>'
+            f'<span class="chip">{meta["model"]}</span>'
+        )
+        st.markdown(f'<div class="meta-row">{chips}</div>', unsafe_allow_html=True)
+    if citations:
+        for c in citations:
+            with st.expander(f"[{c['n']}] {c['label']}"):
+                st.markdown(c["text"])
+    elif _looks_like_refusal(text):
+        # D3: calm out-of-scope card — shown only on a real refusal, not on every
+        # uncited answer, and never the loud yellow st.warning.
+        with st.container(border=True):
+            st.markdown("⚠︎ Out of scope — I answer only from the indexed 14 CFR material.")
 
 
 st.set_page_config(page_title="FAA RAG Chat", page_icon="🛩️")
 st.title("🛩️ FAA RAG Chat")
+
+# Footer meta chips (injected once). teal-soft pills, cost = filled teal so it pops.
+st.markdown(
+    """<style>
+    .meta-row{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 2px;
+      font-family:ui-monospace,Menlo,"SF Mono",monospace;font-size:12px}
+    .meta-row .chip{background:#e4efe9;color:#3f4a45;padding:3px 11px;border-radius:13px}
+    </style>""",
+    unsafe_allow_html=True,
+)
 
 index, embed_model, bm25 = get_index()
 
@@ -115,15 +216,28 @@ if "messages" not in st.session_state:
 for m in st.session_state.messages:
     with st.chat_message(m["role"], avatar=AVATARS[m["role"]]):
         st.markdown(m["text"])
+        if m["role"] == "assistant":
+            render_footer(m.get("meta"), m.get("citations", []), m["text"])
 
-if prompt := st.chat_input("Ask a question about 14 CFR…"):
+prompt = st.chat_input("Ask a question about 14 CFR…")
+
+# Empty-state examples (D5): one click beats typing. Gone once a chat starts.
+if not st.session_state.messages:
+    st.caption("Try an example — or type your own below:")
+    for _q in EXAMPLES:
+        if st.button(_q, use_container_width=True):
+            prompt = _q
+
+if prompt:
     st.session_state.messages.append({"role": "user", "text": prompt})
     with st.chat_message("user", avatar=AVATARS["user"]):
         st.markdown(prompt)
 
     with st.chat_message("assistant", avatar=AVATARS["assistant"]):
         with st.spinner("Searching + answering…"):
-            reply, hits = answer(prompt, index, embed_model, bm25)
+            reply, meta, citations = answer(prompt, index, embed_model, bm25)
         st.markdown(reply)
+        render_footer(meta, citations, reply)
 
-    st.session_state.messages.append({"role": "assistant", "text": reply, "hits": hits})
+    st.session_state.messages.append(
+        {"role": "assistant", "text": reply, "meta": meta, "citations": citations})

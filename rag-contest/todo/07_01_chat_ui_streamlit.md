@@ -129,7 +129,9 @@
 
 ---
 
-### [ ] 단계 2: 메타 footer + $비용 + Sources expander + 거부 카드
+### [x] 단계 2: 메타 footer + $비용 + Sources expander + 거부 카드 ✅
+
+> 완료(2026-07-01): footer 칩(총토큰+hover in/out·비용·검색·모델)·Sources expander·거부카드(실제 거부 문구일 때만)·빈화면 예시버튼(D5 앞당김). `/simplify` 통과 — format_context 재사용·거부 휴리스틱 정교화 적용. 색(terracotta)은 단계 3.
 
 **변경 파일**: `rag-starter/streamlit_app.py`
 
