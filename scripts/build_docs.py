@@ -1018,16 +1018,59 @@ flowchart LR
 
       <h3 style="border-top:1px solid #30363d;padding-top:1.2rem;margin-top:2rem">B. 실험 하네스 (H1~H5) — 2막 준비</h3>
       <p>파이프라인 위에 <b>자동 실험 장치</b>를 얹는다. 대부분 진행 중이라 압축 표로(완료되면 카드로 승격). 실행 상세 → <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/todo/06_30_act1_harness.md">act1_harness</a>.</p>
-      <table class="cmp">
-        <tr><th>단계</th><th>목적</th><th>상태</th></tr>
-        <tr><td><b>H1</b> holdout 검증</td><td>정답 § 라벨을 FAA 인덱스에 대조해 확정(채점 신뢰의 전제)</td><td>✅ 93ca724</td></tr>
-        <tr><td><b>H2</b> 검색 채점기</td><td>Recall·coverage·MRR 산출(무료·코드)</td><td>✅ 7201435</td></tr>
-        <tr><td><b>H3a</b> 검색엔진 매개변수화</td><td>인덱서(청킹·임베딩) + BM25·하이브리드 검색을 인자로</td><td>⏳ 예정</td></tr>
-        <tr><td><b>H3b</b> 오케스트레이터 루프</td><td>설정 그리드 순회 → runs.jsonl 적재(무료 검색 0~4)</td><td>⏳ 예정</td></tr>
-        <tr><td><b>H4</b> 인용 검증기</td><td>답변의 인용 §이 근거에 실제 있나 대조(가짜 인용 색출)</td><td>⏳ 예정</td></tr>
-        <tr><td><b>H5</b> 생성 단계(유료)</td><td>실험 5~6 답 생성·캐싱·Batches — <b>메인 세션</b>, 요구사항 <a href="rag-experiments.html">§5.1</a></td><td>⏳ 예정</td></tr>
-      </table>
-      <p class="note">H1~H4는 <b>무료 검색 축</b>(로컬), H5만 <b>유료 생성</b>. 이게 끝나면 밤샘 자동 실험(2막)을 돌린다.</p>
+      <div class="step">
+        <h4>H1 — holdout 정답 § 검증/채우기 <span class="st done">✅ 완료 · 93ca724</span></h4>
+        <dl>
+          <dt>목적</dt><dd>정답 § 라벨을 FAA 인덱스에 대조해 <b>확정</b>. 무료 채점 전체가 이 라벨에 의존하는 <b>차단 작업(blocker)</b>.</dd>
+          <dt>결과</dt><dd>H01~H11 정답 § 채움(H01→§1.2·H03→§91.151·H10→§61.57+§61.23 등). H12~H14는 거부 문제라 <code>null</code>이 정답.</dd>
+          <dt>의미</dt><dd>이제 Recall@K를 <b>신뢰</b>할 수 있다 → 밤샘 그리드가 "틀린 방향으로 빠르게" 달리는 사고 예방. → <a href="rag-experiments.html">⑤ 홀드아웃</a>.</dd>
+        </dl>
+      </div>
+
+      <div class="step">
+        <h4>H2 — 검색 채점기 (Recall·coverage·MRR) <span class="st done">✅ 완료 · 7201435</span></h4>
+        <dl>
+          <dt>목적</dt><dd>검색이 정답을 잘 가져왔나 <b>코드로 채점</b>(Claude 없이 무료). 세 각도로.</dd>
+          <dt>결과</dt><dd><code>score.py</code>: recall(하나라도) + coverage(몇 개) + MRR(몇 등). <b>[R1]</b> 청킹 방식과 독립 — 청크에 § 메타 없으면 텍스트에서 § 문자열로 판정. pytest <b>6케이스</b>. H03 실측 recall=1·coverage=1·mrr=1.0.</dd>
+          <dt>의미</dt><dd>밤샘 그리드의 <b>채점 엔진</b> 완성. 교차질문은 coverage로 정직하게, 순위는 MRR로(→ K 줄여 토큰↓). → <a href="rag-experiments.html">⑥ 채점</a>.</dd>
+        </dl>
+      </div>
+
+      <div class="step">
+        <h4>H3a — 검색 엔진 매개변수화 <span class="st todo">⏳ 예정</span></h4>
+        <dl>
+          <dt>목적</dt><dd>오케스트레이터가 축을 돌리려면 <b>인덱서·검색이 설정을 인자로</b> 받아야 함(지금은 단일 목적이라 그리드를 못 돎).</dd>
+          <dt>계획</dt><dd><b>[R2]</b> <code>build_index(chunker, embed_model)</code> 매개변수화(모델별 프리픽스 테이블 — bge·e5 필수, gte 불필요). <b>[R3]</b> <code>retrieval.py</code>에 BM25·하이브리드(α 병합) 추가, 인터페이스 통일.</dd>
+          <dt>의미</dt><dd>그리드 스윕의 <b>도구</b> — 이게 있어야 H3b 루프가 청킹·임베딩·검색·K 축을 돌린다.</dd>
+        </dl>
+      </div>
+
+      <div class="step">
+        <h4>H3b — 오케스트레이터 루프 (엔진) <span class="st todo">⏳ 예정</span></h4>
+        <dl>
+          <dt>목적</dt><dd>도구 위에서 설정을 순서대로 돌려 <code>runs.jsonl</code>을 쌓는 <b>for문</b>(무료 검색 축 0~4).</dd>
+          <dt>계획</dt><dd>중첩 루프 — <b>바깥</b>: 청킹×임베딩 = 인덱스 빌드 12개(무거움), <b>안쪽</b>: 검색×K 스윕(같은 인덱스 재사용·즉시). <b>[R4]</b> 이어하기 키 = <b>설정 내용</b>(build_id 아님). <b>[실험4]</b> coverage 거의 안 떨어지는 <b>최소 K</b> 선택.</dd>
+          <dt>의미</dt><dd>2막의 <b>심장</b>. finalist 2개를 생성 단계(H5)로 넘긴다(검색 1등 ≠ 생성 1등 안전장치).</dd>
+        </dl>
+      </div>
+
+      <div class="step">
+        <h4>H4 — 프로그램 인용 검증기 <span class="st todo">⏳ 예정</span></h4>
+        <dl>
+          <dt>목적</dt><dd>답변이 인용한 §이 <b>진짜 그 근거에 있나</b> 대조 → 가짜 인용 색출(무료).</dd>
+          <dt>계획</dt><dd><code>verify_citations.py</code>: 인용 § 청크 텍스트에 <b>주장의 핵심 키워드</b>가 있는지 확인, 없으면 "unsupported" 플래그.</dd>
+          <dt>의미</dt><dd>생성 단계(2·3막) 답변 품질 채점의 <b>무료 보조</b> — 인용 25점을 지키는 방패.</dd>
+        </dl>
+      </div>
+
+      <div class="step">
+        <h4>H5 — 생성 단계 (유료) <span class="st todo">⏳ 예정 · 메인 세션</span></h4>
+        <dl>
+          <dt>목적</dt><dd>실험 5~6 — 검색으로 고른 finalist로 <b>실제 답을 생성</b>(sonnet/opus, 프롬프트 A/B).</dd>
+          <dt>계획</dt><dd>프롬프트 <b>캐싱</b>(<code>cache_control</code>) + <code>tokens.in/out</code> 기록 + <b>Batches</b> 50%↓. 요구사항 준비됨 → <a href="rag-experiments.html">⑦ 비용 §5.1</a>.</dd>
+          <dt>막힌 점</dt><dd>아직 harness.md에 단계로 <b>없음</b>(범위 밖 표시) — <b>메인 세션</b>이 추가할 몫. H1~H4는 무료 검색, H5만 유료 생성.</dd>
+        </dl>
+      </div>
     </section>
 
     <section class="sec" id="log">
