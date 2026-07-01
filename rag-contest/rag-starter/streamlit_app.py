@@ -172,17 +172,62 @@ def _looks_like_refusal(text: str) -> bool:
     return "don't contain" in low or "do not contain" in low or "provided sources" in low
 
 
+_FOLLOWUP_CUES = ("what about", "how about", "what if", "and ", "then ", "also ",
+                  "at night", "during the day", "그럼", "그러면", "밤에", "낮에")
+
+
+def _is_followup(text: str) -> bool:
+    """True if `text` reads like a BARE follow-up that needs the prior question's topic.
+
+    A bare follow-up ("what about at night?") has no subject words of its own, so its
+    search must inherit the previous question's topic. But a full standalone question
+    does NOT — blindly prepending an unrelated prior question pollutes the embedding.
+    (A "Class B/C airspace" prefix once buried a fuel-reserve question, retrieving
+    airspace §§ instead of §91.151 → a false "out of scope".) Heuristic, no API call:
+    short (≤5 words) OR opens with a follow-up cue.
+    """
+    low = text.lower().strip()
+    return len(low.split()) <= 5 or low.startswith(_FOLLOWUP_CUES)
+
+
 _SECTION_RE = re.compile(r"§\s?\d+\.\d+(?:\([a-z0-9]+\))*")
 
 
-def _colorize(text: str) -> str:
-    """Tint § regulation references with Streamlit's SAFE :orange markdown colorizer.
+def _cornell_url(section: str | None) -> str | None:
+    """Authoritative full-text URL for a § on Cornell LII, e.g. §91.151(a)(1) →
+    https://www.law.cornell.edu/cfr/text/14/91.151. None if there's no section number."""
+    m = re.search(r"\d+\.\d+", section or "")
+    return f"https://www.law.cornell.edu/cfr/text/14/{m.group(0)}" if m else None
 
-    Never unsafe_allow_html: the answer is model output, so injecting raw HTML into it
-    would be a prompt-injection hole (Robustness). :orange is sanitized by Streamlit
-    and reads as a warm terracotta-ish tone against the cream theme.
+
+def _colorize(text: str) -> str:
+    """Tint § references terracotta (Streamlit's SAFE :orange colorizer — no raw HTML on
+    model output). The verifiable Cornell LII link lives next to each source card, not
+    inline, so the answer stays readable while citations stay authoritative.
     """
     return _SECTION_RE.sub(lambda m: f":orange[{m.group(0)}]", text)
+
+
+_STOP = {
+    "the", "a", "an", "and", "or", "of", "for", "to", "in", "on", "at", "by", "with",
+    "is", "are", "be", "as", "that", "this", "it", "its", "from", "what", "which",
+    "how", "when", "where", "who", "do", "does", "did", "must", "may", "can", "shall",
+    "not", "no", "any", "each", "under", "within", "between", "than", "then", "you",
+    "your", "about", "requirements", "required", "require",
+}
+
+
+def _highlight(text: str, query: str) -> str:
+    """Highlight the question's content words where they appear in a retrieved passage
+    (Streamlit-safe :orange-background), so the reader sees WHY the passage matched.
+    Stopwords are skipped so only meaningful terms light up.
+    """
+    words = {w for w in re.findall(r"[A-Za-z]{3,}", (query or "").lower()) if w not in _STOP}
+    if not words:
+        return text
+    pat = re.compile(r"\b(" + "|".join(sorted(map(re.escape, words), key=len, reverse=True)) + r")\b",
+                     re.IGNORECASE)
+    return pat.sub(lambda m: f":orange-background[{m.group(0)}]", text)
 
 
 def _format_answer(text: str, citations: list[dict]) -> str:
@@ -239,19 +284,39 @@ def stream_answer(question, hits, placeholder, history):
     return full, meta
 
 
+def _pipeline_dot(found: list[str], n_passages: int, tokens: int) -> str:
+    """A tiny Graphviz flow of THIS turn's pipeline (native — no mermaid/CDN dep).
+
+    Question → retrieved sections → kept passages → grounded answer, with the real
+    section names and token count so it's specific to the question, not decorative.
+    """
+    top = " · ".join(found[:3]) or "—"
+    return (
+        'digraph{rankdir=LR;bgcolor="transparent";pad=0.15;'
+        'node[shape=box,style="rounded,filled",fillcolor="#fbf8f1",color="#ded4c1",'
+        'fontname="Helvetica",fontsize=10,margin=0.14];edge[color="#2e7d6b",penwidth=1.4];'
+        'q[label="① Question"];'
+        f'r[label="② Retrieved\\n{top}"];'
+        f's[label="③ Kept {n_passages} passages\\n≈{tokens:,} tokens"];'
+        'a[label="④ Grounded answer"];q->r->s->a}'
+    )
+
+
 def render_footer(meta: dict | None, citations: list[dict], text: str,
-                  process: list[str] | None = None) -> None:
+                  process: list[str] | None = None, graph: str | None = None,
+                  query: str | None = None) -> None:
     """Draw the quiet cost/model/retrieval chips + source cards under an answer.
 
     Shared by the live turn and the replay loop so history renders identically.
-    No grounding badge (E2). § references are tinted by _colorize at render time.
-    `process` (if given) is the retrieval trace kept in a collapsed expander, so the
-    "how did it find this" story persists under every answer — not just while it
-    streams (the professor asked to see the retrieval process, re-viewable anytime).
+    No grounding badge (E2). § references become verifiable links via _link_sections.
+    `process`/`graph` (if given) are the retrieval trace + pipeline diagram, kept in an
+    expanded panel so the "how did it find this" story persists under every answer.
     """
-    if process:
+    if process or graph:
         with st.expander("🔍 How this answer was retrieved", expanded=True):
-            for s in process:
+            if graph:
+                st.graphviz_chart(graph, use_container_width=True)
+            for s in (process or []):
                 st.markdown(s)
     if meta:
         # Uniform teal-soft pills. Headline = total tokens + cost; the in/out split
@@ -269,7 +334,14 @@ def render_footer(meta: dict | None, citations: list[dict], text: str,
     if citations:
         for c in citations:
             with st.expander(f"[{c['n']}] {c['label']}"):
-                st.markdown(c["text"])
+                # Our own retrieved passage (the part we used), with the question's
+                # content words highlighted so you see why this passage matched.
+                st.markdown(_highlight(c["text"], query))
+                # Separate, authoritative full text for verification.
+                url = _cornell_url(c.get("section"))
+                if url:
+                    st.markdown(f"↗ [Verify on Cornell LII — full official text of "
+                                f"{c['label']}]({url})")
     elif _looks_like_refusal(text):
         # D3: calm out-of-scope card — shown only on a real refusal, not on every
         # uncited answer, and never the loud yellow st.warning.
@@ -289,6 +361,8 @@ st.markdown(
     .meta-row{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 2px;
       font-family:ui-monospace,Menlo,"SF Mono",monospace;font-size:12px}
     .meta-row .chip{background:#e4efe9;color:#3f4a45;padding:3px 11px;border-radius:13px}
+    /* § citation links → terracotta (verifiable source links inside answers). */
+    [data-testid="stChatMessage"] a{color:#b5651d;text-decoration:underline}
     </style>""",
     unsafe_allow_html=True,
 )
@@ -307,7 +381,8 @@ for m in st.session_state.messages:
         st.markdown(_format_answer(m["text"], m.get("citations", []))
                     if m["role"] == "assistant" else m["text"])
         if m["role"] == "assistant":
-            render_footer(m.get("meta"), m.get("citations", []), m["text"], m.get("process"))
+            render_footer(m.get("meta"), m.get("citations", []), m["text"],
+                          m.get("process"), graph=m.get("graph"), query=m.get("query"))
 
 prompt = st.chat_input("Ask a question about 14 CFR…")
 
@@ -366,6 +441,9 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
             step("✍️ Writing an answer grounded **only** in these passages, with citations…")
             status.update(label="Retrieval process", state="complete", expanded=True)
 
+        # Native Graphviz flow of this turn's pipeline (no mermaid/CDN dependency).
+        graph = _pipeline_dot(found, len(hits), sel_chars // 4)
+
         # 4c multi-turn: prior turns as plain Q/A (no old CONTEXT blocks — E2).
         history = [{"role": m["role"], "content": m["text"]}
                    for m in st.session_state.messages[:-1]]
@@ -379,9 +457,9 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
         # Live turn shows the process in the st.status box above; don't also render the
         # persistent expander here (avoids a double copy). It's stored on the message
         # and shown by the replay loop on every later run.
-        render_footer(meta, citations, reply)
+        render_footer(meta, citations, reply, graph=graph, query=search_query)
         log_attempt(q, meta, found)
 
     st.session_state.messages.append(
-        {"role": "assistant", "text": reply, "meta": meta,
-         "citations": citations, "process": steps})
+        {"role": "assistant", "text": reply, "meta": meta, "citations": citations,
+         "process": steps, "graph": graph, "query": search_query})
