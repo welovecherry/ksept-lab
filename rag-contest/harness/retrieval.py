@@ -112,6 +112,18 @@ def select_context(query: str, hits: list[dict], embed_model: str,
     # Pair each window with its vector, sort by distance (lower = closer to query).
     ranked = [w for w, _ in sorted(zip(windows, wv),
                                    key=lambda p: cosine_distance(p[1], qv))]
+
+    # Enumerated rules (§91.215 Mode C, §61.57 recency) live in ONE section but
+    # spread across sub-paragraphs whose wording drifts from the query, so plain
+    # similarity fragments them and drops sub-rules. Fix: the section owning the
+    # single best window is almost always THE answer section — pull its windows to
+    # the front (in similarity order) so the whole rule is kept together, then
+    # fill the rest by similarity. Uses the best WINDOW's section, not the top
+    # retrieved hit, since vector can rank the right section low (§61.57 was 4th).
+    primary = ranked[0].get("section")
+    if primary is not None:
+        ranked.sort(key=lambda w: w.get("section") != primary)  # stable: primary first
+
     kept: list[dict] = []
     total = 0
     for w in ranked:
