@@ -36,7 +36,7 @@ export default function App() {
               <div className="sources">
                 Sources: {m.citations.map((c) => (
                   <span key={c.n} className="source">
-                    [{c.n}] {c.source}
+                    [{c.n}] {c.label || c.source}
                   </span>
                 ))}
               </div>

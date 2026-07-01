@@ -106,8 +106,19 @@ def _build_citations(answer: str, hits: list[dict]) -> list[dict]:
             "n": n,
             "source": h["source"],
             "chunk_index": h["chunk_index"],
+            "section": h.get("section"),
+            "part": h.get("part"),
+            "label": _citation_label(h),
         })
     return citations
+
+
+def _citation_label(hit: dict) -> str:
+    """'§91.151 (Part 91)' for FAA chunks; fall back to the filename otherwise."""
+    section, part = hit.get("section"), hit.get("part")
+    if section and part:
+        return f"{section} (Part {part.removeprefix('part')})"
+    return hit["source"]
 
 
 if __name__ == "__main__":
