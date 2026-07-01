@@ -326,14 +326,22 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
         prev_q = [m["text"] for m in st.session_state.messages[:-1] if m["role"] == "user"]
         search_query = f"{prev_q[-1]} {q}" if prev_q else q
 
-        # 4b retrieval-first + token cap: retrieve, then keep only the query-relevant
-        # windows of each chunk (huge § like 61.109 → ~1.6k tokens, not ~15k). Windows
-        # inherit the parent § meta, so citations still resolve.
-        hits = retrieve(search_query, index, method=CHAMPION_METHOD, k=CHAMPION_K,
-                        embed_model=embed_model, bm25=bm25)
-        hits = select_context(search_query, hits, embed_model)
-        found = list(dict.fromkeys(h.get("section") or h.get("source") for h in hits))[:3]
-        st.caption(f"🔍 Found {' · '.join(found)} · {CHAMPION_METHOD}·K{CHAMPION_K}")
+        # Live process panel — the REAL pipeline (search → select → write), not a fake
+        # "thinking" animation. Steps appear as each runs, then it auto-collapses. This
+        # doubles as transparency (judges see grounding + the token trim we're proud of).
+        with st.status("Working on it…", expanded=True) as status:
+            st.write("🔎 Searching the 14 CFR corpus…")
+            hits = retrieve(search_query, index, method=CHAMPION_METHOD, k=CHAMPION_K,
+                            embed_model=embed_model, bm25=bm25)
+            found = list(dict.fromkeys(h.get("section") or h.get("source") for h in hits))[:3]
+            st.write(f"📑 Found {' · '.join(found)}")
+            st.write("✂️ Selecting the passages most relevant to your question…")
+            # Cap context tokens: keep only query-relevant windows (huge § like 61.109
+            # → ~1.6k tokens, not ~15k). Windows inherit the parent § meta for citations.
+            hits = select_context(search_query, hits, embed_model)
+            st.write(f"📉 Narrowed to {len(hits)} passages · {CHAMPION_METHOD}·K{CHAMPION_K}")
+            st.write("✍️ Writing a grounded, cited answer…")
+            status.update(label="Done", state="complete", expanded=False)
 
         # 4c multi-turn: prior turns as plain Q/A (no old CONTEXT blocks — E2).
         history = [{"role": m["role"], "content": m["text"]}
