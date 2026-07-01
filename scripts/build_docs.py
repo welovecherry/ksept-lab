@@ -869,7 +869,7 @@ export TRANSFORMERS_OFFLINE=1</code></pre>
       <p>단계 1~5의 <b>상태·결과·막힌 점</b>은 단계 카드로 분리했다 →
         <a href="rag-progress.html"><b>06 진행 단계</b></a>.</p>
 
-      <p class="note">원본 상세: <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/STRATEGY.md">STRATEGY.md</a>(전략·3막) · <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/EXPERIMENTS.md">EXPERIMENTS.md</a>(채점·체크리스트) · <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/todo/06_30_phase0_1.md">todo/06_30_phase0_1.md</a>(Phase 0~1 실행계획)</p>
+      <p class="note">원본 상세: <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/STRATEGY.md">STRATEGY.md</a>(전략·3막) · <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/EXPERIMENTS.md">EXPERIMENTS.md</a>(채점·체크리스트) · <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/todo/06_30_act1_pipeline.md">todo/06_30_act1_pipeline.md</a>(Phase 0~1 실행계획)</p>
     </section>
 
     <section class="sec" id="ensemble">
@@ -928,8 +928,8 @@ flowchart LR
       <h2>🛠️ 진행 단계 (Phase 0~1)</h2>
       <p>스타터(아폴로 예제)를 <b>FAA 항공법 챗봇</b>으로 갈아끼우는 5단계. 각 카드 =
         <b>목적 · 결과 · 막힌 점</b>. 통과기준·커밋 같은 실행 디테일은
-        <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/todo/06_30_phase0_1.md">todo/06_30_phase0_1.md</a>에.</p>
-      <div class="ok"><b>지금 여기:</b> <b>단계 5(§ 인용 표시)만 남음</b> — 1·2·3-1·3-2·4 완료(4는 커밋 대기), 임베딩 프리페치 완료.</div>
+        <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/todo/06_30_act1_pipeline.md">todo/06_30_act1_pipeline.md</a>에.</p>
+      <div class="ok"><b>🎉 Phase 0~1(1막 파이프라인) 전 단계 완료</b> — 단계 1~5 ✅ + 임베딩 프리페치 ✅. Sources에 <code>§91.151 (Part 91)</code> 실현. <b>다음은 2막(하네스·자동 실험)</b> → <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/todo/06_30_act1_harness.md">act1_harness</a>.</div>
 
       <div class="step">
         <h4>준비 — 임베딩 후보 프리페치 <span class="st done">✅ 완료 (실험 2 선행)</span></h4>
@@ -987,11 +987,12 @@ flowchart LR
       </div>
 
       <div class="step">
-        <h4>단계 5 — 답변 Sources에 § 인용 노출 <span class="st todo">⏳ 예정</span></h4>
+        <h4>단계 5 — 답변 Sources에 § 인용 노출 <span class="st done">✅ 완료 · 4f50fd1</span></h4>
         <dl>
           <dt>목적</dt><dd><code>citations</code>에 <code>section</code>·<code>part</code>를 실어 Sources 라벨을 조항 번호로.</dd>
-          <dt>UI</dt><dd>Sources가 <code>part91.md</code> → <b><code>§91.151 (Part 91)</code></b>로 바뀜 ← <b>시나리오 결과 장면</b>.</dd>
-          <dt>검증</dt><dd>범위밖 질문("공항 근처 맛집")은 "출처에 없음"으로 거부 — 환각 없음 확인.</dd>
+          <dt>결과</dt><dd><code>_build_citations</code>에 section·part·label 추가, <code>_citation_label</code>이 <b><code>§91.151 (Part 91)</code></b> 생성(§ 메타 없으면 파일명 폴백). 프론트는 <code>c.label || c.source</code> 렌더.</dd>
+          <dt>검증</dt><dd>실제 검색+합성 답으로 [1]→<b>§91.151 (Part 91)</b>·[2]→§25.955 (Part 25)·범위밖 인용 필터·비FAA 폴백 확인. (라이브 스모크는 예산상 선택)</dd>
+          <dt>UI</dt><dd>Sources가 <code>part91.md</code> → <b><code>§91.151 (Part 91)</code></b>로 바뀜 ← <b>시나리오 결과 장면 실현</b> 🎉</dd>
         </dl>
       </div>
     </section>
@@ -1030,6 +1031,14 @@ flowchart LR
         <li><b>3-2 §태깅 (51eba47):</b> 조항마다 <code>&lt;!-- §… --&gt;</code> 꼬리표. 1차엔 <b>361개(과다)</b> — 본문 참조(<code>§ 91.107(a)(3)</code>)까지 오인 → 정규식 <b>lookahead</b>(줄시작+뒤가 제목)로 <b>256개·중복 0</b>. 파서 테스트 8건.</li>
         <li><b>4 인덱싱 (커밋 대기):</b> 아폴로 백업, FAA <b>2,184 chunks</b>, part 불일치 0. T5 스모크 "day VFR fuel-reserve" → top <b>§91.151</b> 정확. runs/manifest 실제 1줄씩 적재.</li>
         <li><b>남은 것:</b> 단계 5(답변 Sources에 <code>§91.151 (Part 91)</code> 노출)만 남음. 상세 카드 → <a href="rag-progress.html">07 진행 단계</a>.</li>
+      </ul>
+
+      <h3>2026-06-30 — 🎉 단계 5 완료: Sources에 § 인용 노출 (Phase 0~1 끝)</h3>
+      <ul>
+        <li><b>한 일 (4f50fd1):</b> <code>app.py</code>의 <code>_build_citations</code>에 section·part·label 추가, <code>_citation_label</code>이 <code>§91.151 (Part 91)</code> 생성(§ 없으면 파일명 폴백). 프론트 <code>App.jsx</code>는 <code>c.label || c.source</code>.</li>
+        <li><b>검증:</b> 실제 검색+합성 답으로 [1]→<b>§91.151 (Part 91)</b>·[2]→§25.955 (Part 25)·범위밖 인용 필터·비FAA 폴백 확인.</li>
+        <li><b>의미:</b> "챗봇이 <b>진짜 조항 번호</b>로 인용하는" 시나리오 결과 장면 실현 → <b>25점 인용 레버</b> 확보. <b>Phase 0~1(1막 파이프라인) 전 단계 완료.</b></li>
+        <li><b>다음:</b> 2막(하네스·자동 실험). 단 그 전에 <b>holdout 정답 § 라벨 확정</b>(grep 대조, blocker)이 선행.</li>
       </ul>
 
       <div class="ph"><b>다음 칸 — 날짜별로 계속 기록:</b> 오늘 한 일 / 막힌 점 / 해결.</div>
