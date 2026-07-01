@@ -9,9 +9,17 @@ you can focus on the structure.
 from __future__ import annotations  # allow `X | None` annotations on Python 3.9
 
 import pickle
+import re
+import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sentence_transformers import SentenceTransformer
+
+# Put rag-contest/ on the path so both `python indexer.py` and app.py's
+# `from indexer import ...` can reach the shared harness package ([리뷰 T1]).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from harness.recorder import log_index_build, log_run, new_id
 
 # Multilingual (50+ languages), 384-dim — same model as the /embedding project.
 # Lets the corpus and the queries be in different languages and still match.
@@ -70,6 +78,38 @@ def chunk_text(text: str, target_chars: int = 1000, overlap_chars: int = 100) ->
 
 
 # ════════════════════════════════════════════════════════════════
+# FAA chunking: one chunk per §-section, carrying its section/part meta.
+# ════════════════════════════════════════════════════════════════
+
+# Matches the tags that extract_faa.py inserted: "<!-- §91.151 | part91 -->".
+_SECTION_TAG = re.compile(r"<!-- (§[\d.\w]+) \| (part\d+) -->")
+
+
+def chunk_by_section(text: str) -> list[dict]:
+    """Split §-tagged FAA markdown into one chunk per section.
+
+    Each chunk spans from one `<!-- § … -->` tag to the next and carries the
+    section/part parsed from that tag, so retrieval can cite the exact clause.
+    """
+    tags = list(_SECTION_TAG.finditer(text))
+    pieces: list[dict] = []
+    for i, m in enumerate(tags):
+        end = tags[i + 1].start() if i + 1 < len(tags) else len(text)
+        body = text[m.end():end].strip()
+        if body:
+            pieces.append({"section": m.group(1), "part": m.group(2), "text": body})
+    return pieces
+
+
+def pick_chunker(text: str) -> list[dict]:
+    """Route §-tagged FAA text to section chunking, everything else to char
+    chunking. Both return list[dict] with a "text" key so build_index is uniform."""
+    if "<!-- §" in text:
+        return chunk_by_section(text)
+    return [{"text": chunk} for chunk in chunk_text(text)]
+
+
+# ════════════════════════════════════════════════════════════════
 # Provided: embedding (sentence-transformers, no API key required)
 # ════════════════════════════════════════════════════════════════
 
@@ -96,27 +136,32 @@ def embed(texts: list[str]) -> list[list[float]]:
 # ════════════════════════════════════════════════════════════════
 
 def build_index() -> list[dict]:
-    """Walk DOCS_DIR, chunk each file, embed, return list of records."""
+    """Walk DOCS_DIR, chunk each file, embed, return list of records.
+
+    Subdirectories (e.g. _apollo_backup/) are skipped, so moving the starter's
+    apollo docs there drops them from the index without touching this code.
+    """
     records: list[dict] = []
     chunk_id = 0
     for path in sorted(DOCS_DIR.glob("*")):
         if path.is_dir() or path.suffix.lower() not in (".md", ".txt"):
             continue
-        text = path.read_text()
-        chunks = chunk_text(text)
-        if not chunks:
+        pieces = pick_chunker(path.read_text())
+        if not pieces:
             continue
-        vectors = embed(chunks)
-        for i, (chunk, vec) in enumerate(zip(chunks, vectors)):
+        vectors = embed([p["text"] for p in pieces])
+        for i, (piece, vec) in enumerate(zip(pieces, vectors)):
             records.append({
                 "chunk_id": chunk_id,
                 "source": path.name,
                 "chunk_index": i,
-                "text": chunk,
+                "text": piece["text"],
+                "section": piece.get("section"),  # None for non-FAA (char) chunks
+                "part": piece.get("part"),
                 "embedding": vec,
             })
             chunk_id += 1
-        print(f"  {path.name}: {len(chunks)} chunks")
+        print(f"  {path.name}: {len(pieces)} chunks")
     return records
 
 
@@ -147,11 +192,44 @@ def search(query: str, records: list[dict], k: int = 5) -> list[dict]:
     return [r for _, r in scored[:k]]
 
 
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
 def main() -> None:
     print(f"Indexing documents from {DOCS_DIR}/")
     records = build_index()
     save_index(records)
     print(f"\n✓ Indexed {len(records)} chunks → {INDEX_PATH.name}")
+
+    # Record the build (success or not) as one manifest line.
+    build_id = new_id("idx")
+    log_index_build({
+        "kind": "index_build", "build_id": build_id, "ts": _now(),
+        "config": {"chunking": "section", "embed_model": MODEL_NAME, "corpus": "faa"},
+        "result": {
+            "status": "ok",
+            "n_chunks": len(records),
+            "n_sections": sum(1 for r in records if r.get("section")),
+            "n_docs": len({r["source"] for r in records}),
+        },
+        "status": "ok", "error": None,
+    })
+
+    # [리뷰 T5] End-to-end smoke: prove the runs.jsonl schema by writing a REAL
+    # line from an actual retrieval, not a hand-declared example.
+    question = "What are the day VFR fuel-reserve requirements for an airplane?"
+    hits = search(question, records, k=5)
+    top_sections = [h.get("section") for h in hits]
+    log_run({
+        "kind": "run", "run_id": new_id("r"), "ts": _now(), "build_id": build_id,
+        "config": {"chunking": "section", "embed_model": MODEL_NAME,
+                   "retrieval": "vector", "topk": 5},
+        "question_id": "smoke_fuel", "stage": "retrieval",
+        "retrieval": {"topk_sections": top_sections},
+        "status": "ok", "error": None,
+    })
+    print(f"  smoke: top sections {top_sections}")
 
 
 if __name__ == "__main__":
