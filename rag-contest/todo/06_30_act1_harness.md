@@ -37,18 +37,28 @@
 ## 변경 대상 파일
 
 ### 신규
-- `harness/verify_holdout.py` — 정답 § 대조/후보검색 도우미 ([수정5])
-- `harness/score.py` — `score_retrieval(hits, expected) -> {recall, coverage, mrr}` ([수정4])
-- `harness/tests/test_score.py` — 채점기 단위테스트
-- `harness/orchestrate.py` — 설정 순회 엔진(검색 축 0~4, 무료) ([수정2])
-- `harness/verify_citations.py` — 인용 사실대조 (무료)
+- `harness/verify_holdout.py` — 정답 § 대조/후보검색 도우미 ([수정5], H1)
+- `harness/score.py` — `score_retrieval(hits, expected) -> {recall, coverage, mrr}` ([수정4·R1·R5], H2)
+- `harness/tests/test_score.py` — 채점기 단위테스트 (H2)
+- `harness/retrieval.py` — BM25·하이브리드 검색 + 통일 인터페이스 ([R3], H3a)
+- `harness/orchestrate.py` — 설정 순회 엔진(검색 축 0~4, 무료) ([수정2·R4], H3b)
+- `harness/tests/test_orchestrate.py` — 미니코퍼스 end-to-end 스모크 ([R8], H3b)
+- `harness/verify_citations.py` — 인용 사실대조 (무료, H4)
 
 ### 수정
-- `holdout.jsonl` — `expected_sections` 확정 + `split:"final"` 태그 3~4개 분리 ([수정6])
+- `rag-starter/indexer.py` — `build_index(chunker, embed_model)` 매개변수화 + 모델별 쿼리 프리픽스 ([R2], H3a)
+- `holdout.jsonl` — `expected_sections` 확정 + `split:"final"` 태그 3~4개 분리 ([수정6·R7], H1)
 
 ---
 
 ## 중요 규칙
+
+> **🔧 엔지니어링 리뷰 반영(2026-06-30):** H3에 숨은 선행작업이 커서 **H3 → H3a(검색 엔진 매개변수화) + H3b(오케스트레이터 루프)** 로 분리. P1 4건 반영:
+> - **[R1] 채점을 청킹 축과 독립적으로**: char-청킹은 `section=None`이라 §메타 채점 불가 → *청크 텍스트에 정답 § 번호 문자열이 있으면 hit* 규칙으로 통일(H2). 안 그러면 char-청킹이 조용히 recall=0으로 찍혀 거짓 결론.
+> - **[R2] `indexer.build_index(chunker, embed_model)` 매개변수화** + bge/e5 쿼리 프리픽스 → H3a로.
+> - **[R3] BM25·하이브리드 검색 엔진**은 `search()`가 벡터전용이라 신규 구현 필요 → H3a.
+> - **[R4] resume 키는 `build_id`(매 실행 새로 생성)가 아니라 *설정 내용*(청킹+임베딩+검색+K+question_id)** 으로.
+> P2: [R5] 채점기 입력 정제(dedupe·None제거·§정규화·0나눗셈 가드), [R6] H1은 "§ 인덱스에 없음"↔"키워드 없음" 구분, [R7] H1에 final split 강제, [R8] 오케스트레이터 미니코퍼스 스모크.
 
 - **정답 § 검증이 끝나기 전엔 실험 점수를 신뢰하지 않는다** ([🔴수정5] blocker).
 - `expected_sections`는 **항상 배열(집합)** 로 다룬다 — 단일정답도 길이 1 집합 ([수정4]).
@@ -72,11 +82,13 @@
 
 **변경 내용**:
 - `verify_holdout.py`: 각 문항에 대해 ① `expected_sections`가 있으면 그 §청크(인덱스에서)에 질문 키워드가 있는지 대조 출력, ② 없으면 `search(question)` top-5의 §를 후보로 제시.
+  - **[R6] 두 실패를 구분**: *"정답 §가 인덱스에 아예 없음"*(→ 추출 누락, 파이프라인 버그)과 *"§는 있는데 키워드 없음"*(→ 라벨 오류)을 다른 플래그로 출력. 원인이 달라 조치가 다름.
 - 사람이 결과를 보고 `holdout.jsonl`을 확정(정답 채움 + `note`의 "추정" 제거). H12~14(거부)는 § 불필요.
 
 **통과 기준**:
 - `holdout.jsonl`에 "추정"/"확인" 문구 0건 (거부 문항 제외 11문항 모두 검증된 §).
 - H01·H02·H06의 `expected_sections` 비어있지 않음.
+- **[R7]** `split:"final"` 태그로 최종점검용 3~4문항 분리([수정6]) — 이게 있어야 통과.
 - 검증 근거(어떤 키워드가 어느 §청크에서 확인됐는지)를 이 문서 실험로그에 남김.
 
 **검증 통과 시 커밋**: `chore(holdout): verify + fill expected_sections against FAA index`
@@ -87,38 +99,64 @@
 
 > 관심사: *"검색이 정답 §를 top-K로 물어왔나를 코드로 채점."*
 
+> **[R1] 채점은 청킹 축과 독립적으로.** 각 청크의 `section` 메타에만 의존하면 char-청킹(§태그 없음, `section=None`)이 조용히 recall=0으로 찍혀 *거짓 결론*을 낸다. 통일 규칙: **retrieved 청크가 정답 §를 "맞혔다"의 정의 = ①청크의 `section` 메타가 정답 §이거나, ②(메타 없으면) 청크 텍스트에 정답 § 번호 문자열이 있으면 hit.** 모든 청킹 방식에 같은 자를 적용.
+
 **변경 내용**:
-- `score.py`: `score_retrieval(retrieved_sections: list[str], expected: list[str], k) -> dict`
+- `score.py`: `score_retrieval(hits: list[dict], expected: list[str], k) -> dict` (청크 dict를 받아 위 [R1] 규칙으로 §-hit 판정)
   - `recall` = 정답 § 중 하나라도 top-K에 있으면 1 else 0 (이진, 참고용)
-  - `coverage` = |top-K ∩ expected| ÷ |expected| (집합 커버리지 — 교차질문 정직)
+  - `coverage` = |top-K가 맞힌 정답 §| ÷ |expected| (집합 커버리지 — 교차질문 정직)
   - `mrr` = 첫 정답 §의 순위 역수(1위=1.0, 5위=0.2, 없으면 0)
-- `test_score.py`: ①단일정답 완전일치, ②교차질문 절반커버(coverage=0.5), ③정답 없음(0), ④MRR 순위 계산.
+  - **[R5] 입력 정제**: retrieved §는 **dedupe + `None` 제거 + § 정규화**(공백/기호 통일) 후 판정. `expected`가 비면(거부문항) 채점 스킵(**0 나눗셈 가드**).
+- `test_score.py`: ①단일정답 완전일치, ②교차질문 절반커버(coverage=0.5), ③정답 없음(0), ④MRR 순위 계산, **⑤[R1] char-청킹(section=None)인데 텍스트에 §번호 있으면 hit**, **⑥[R5] 중복 §·expected 빈 집합 가드**.
 
 **통과 기준**:
-- `pytest harness/tests/test_score.py -q` 통과(위 4케이스).
+- `pytest harness/tests/test_score.py -q` 통과(위 6케이스).
 - H03 실측: §91.151 인덱스로 `search` → 채점기가 recall=1·coverage=1·mrr=1.0 산출.
 
 **검증 통과 시 커밋**: `feat(harness): retrieval scorer — recall + set coverage + MRR with tests`
 
 ---
 
-### [ ] 단계 H3: 오케스트레이터 (검색 축 순회) [🔴수정2]
+### [ ] 단계 H3a: 검색 엔진 매개변수화 [🔴R2·R3] — *H3의 숨은 절반(도구)*
 
-> 관심사: *"여러 설정을 순서대로 돌려 runs.jsonl을 쌓는 for문 엔진."* — 무료 검색 축만(0~4).
+> 관심사: *"오케스트레이터가 축을 돌리려면, 인덱서·검색이 설정을 받아야 한다."* 지금은 둘 다 단일 목적이라 그리드를 못 돈다.
+
+**변경 파일**: `rag-starter/indexer.py`(수정), `harness/retrieval.py`(신규)
 
 **변경 내용**:
-- `orchestrate.py`: 중첩 루프 — **바깥**: (청킹 × 임베딩) → 인덱스 빌드(무거움), **안쪽**: (검색 × K) → 같은 인덱스 재사용(즉시).
+- **[R2]** `build_index(chunker, embed_model)` 매개변수화 — 지금 `MODEL_NAME`·청커 하드코딩을 인자로. (청킹 축: `1000자`/`§경계`/`라우팅`, 임베딩 축: MiniLM/bge/e5/gte)
+  - **bge·e5는 쿼리 프리픽스 필수**(EXPERIMENTS §2), gte는 불필요 → 모델별 프리픽스 테이블.
+- **[R3]** `retrieval.py`: 벡터전용 `search()` 위에 **BM25**·**하이브리드(α 가중 병합)** 추가. 인터페이스 통일: `retrieve(query, index, method, k, alpha) -> hits`.
+
+**통과 기준**:
+- `build_index("section","MiniLM")` 와 `build_index("char","MiniLM")` 가 각각 다른 청크 수로 빌드됨.
+- `retrieve(q, idx, "bm25", 5)` / `"hybrid"` / `"vector"` 셋 다 hits 반환, 형식 동일.
+- bge로 빌드 시 쿼리에 프리픽스가 실제로 붙는지 1케이스 확인.
+
+**검증 통과 시 커밋**: `feat(harness): parameterize indexer (chunker/embed) + BM25/hybrid retrieval`
+
+---
+
+### [ ] 단계 H3b: 오케스트레이터 루프 [🔴수정2·R4·R8] — *엔진*
+
+> 관심사: *"H3a 도구 위에서 설정을 순서대로 돌려 runs.jsonl을 쌓는 for문."* — 무료 검색 축만(0~4).
+
+**변경 파일**: `harness/orchestrate.py`(신규), `harness/tests/test_orchestrate.py`(신규)
+
+**변경 내용**:
+- `orchestrate.py`: 중첩 루프 — **바깥**: (청킹 × 임베딩) → `build_index`(무거움, 12개), **안쪽**: (검색 × K) → 같은 인덱스 재사용(즉시).
   - 각 (설정 × holdout 질문) 실행마다 `score_retrieval` → `log_run(...)` 한 줄.
-  - **이어하기**: 이미 runs.jsonl에 있는 (build_id, config, question_id)는 건너뜀.
+  - **[R4] 이어하기 키 = 설정 내용**(청킹+임베딩+검색+K+question_id), **`build_id` 아님**(매 실행 새로 생성돼 skip 무력화됨).
   - **비용가드**: 검색 축은 $0지만, 인덱스 빌드 횟수/시간 상한을 로그로. (유료 축은 범위 밖.)
 - 이 단계는 STRATEGY 실험 0~4에 해당. finalist 2개는 2막/생성 단계로 넘김([수정3]).
 
 **통과 기준**:
 - 작은 그리드(예: 청킹1 × 임베딩1 × 검색2 × K2 = 4설정) × holdout 11문항 → `runs.jsonl`에 44줄 적재, 모두 유효 JSONL.
-- 재실행 시 이어하기로 **중복 줄 0** (이미 한 조합 skip).
+- 재실행 시 **[R4]** 설정키 이어하기로 **중복 줄 0**.
+- **[R8]** `test_orchestrate.py`: 가짜 미니코퍼스(§ 2~3개)로 end-to-end 1회 — 빌드→검색→채점→runs.jsonl 적재 회귀 방지.
 - 리더보드 원천으로 쓸 수 있게 config가 평면 필드로 인라인.
 
-**검증 통과 시 커밋**: `feat(harness): grid orchestrator (index-build outer, retrieval/K sweep inner) with resume`
+**검증 통과 시 커밋**: `feat(harness): grid orchestrator (index-build outer, retrieval/K sweep inner) with content-key resume`
 
 ---
 
