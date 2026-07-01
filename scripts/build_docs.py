@@ -44,6 +44,7 @@ RAG_PAGES = [
     ("rag-ensemble.html", "06", "앙상블", ["ensemble"]),
     ("rag-progress.html", "07", "진행 단계", ["progress"]),
     ("rag-log.html", "08", "작업 일지", ["log", "ideas", "questions"]),
+    ("rag-final.html", "09", "최종 설정", ["final-config"]),
 ]
 RAG_TITLES = {  # 각 페이지 h1 (사이드바 짧은 제목과 별개)
     "rag-project.html": "🛩️ RAG 콘테스트 프로젝트",
@@ -55,6 +56,7 @@ RAG_TITLES = {  # 각 페이지 h1 (사이드바 짧은 제목과 별개)
     "rag-ensemble.html": "🧩 앙상블 — 모델 합치기",
     "rag-progress.html": "🛠️ 진행 단계 (파이프라인 + 하네스)",
     "rag-log.html": "📝 작업 일지 · 메모 · 질문",
+    "rag-final.html": "🏆 최종 설정 — 챔피언 & 추천",
 }
 
 GIT_FORMAT = "%H%x1f%h%x1f%an%x1f%ad%x1f%s%x1f%b%x1e"
@@ -1254,6 +1256,37 @@ flowchart LR
     <section class="sec" id="questions">
       <h2>❓ 질문 모음</h2>
       <div class="ph"><b>헷갈리는 것 / 나중에 물어볼 것:</b> 답을 찾으면 옆에 정리.</div>
+    </section>
+
+    <section class="sec" id="final-config">
+      <h2>🏆 최종 설정 — 챔피언 &amp; 추천</h2>
+      <p class="analogy">🎯 <b>비유:</b> 밤샘 예선(495번 시식)에서 우승 레시피 <b>2개</b>를 가렸다 — 하나는 "최고 정확도", 하나는 "가성비". 본선(대회)엔 이 둘 중 하나를 낸다.</p>
+
+      <p>밤샘 실험(§경계 청킹 · 임베딩 4개 · 검색 3종 · K 3종 · 11문제)에서 뽑은 <b>finalist 2개</b>:</p>
+      <table class="cmp">
+        <tr><th></th><th>🥇 챔피언</th><th>⭐ 추천</th></tr>
+        <tr><td>설정</td><td>§경계 · bge · <b>hybrid</b> · <b>K8</b></td><td>§경계 · bge · <b>vector</b> · <b>K5</b></td></tr>
+        <tr><td>coverage</td><td><b>0.864</b> (최고)</td><td>0.818</td></tr>
+        <tr><td>MRR (순위)</td><td>0.636</td><td><b>0.718</b> (최고)</td></tr>
+        <tr><td>토큰/질문</td><td>많음</td><td><b>~2,656 (챔피언 대비 ~38%↓)</b></td></tr>
+        <tr><td>성격</td><td>정확도 최우선</td><td>비용·정확도 균형</td></tr>
+      </table>
+
+      <h3>⭐ 왜 "추천"이 vector / K5인가</h3>
+      <ul>
+        <li><b>coverage 거의 안 떨어짐</b> — 0.864 → 0.818 (11문제 중 ~0.5문제 차 = 노이즈급).</li>
+        <li><b>순위(MRR)는 오히려 최고</b>(0.718) — 정답을 더 앞에 놓는다.</li>
+        <li><b>토큰 ~38% 저렴</b> — 비용 관리 15점 + 다른 팀 평균대(2,500~4,000).</li>
+        <li>어젯밤 <b>K=5 결정(실호출 실측)</b>과도 일치.</li>
+      </ul>
+      <div class="ok"><b>한 줄:</b> 정확도 조금 양보하고 <b>토큰 ~38% 아끼는</b> 쪽이 대회 채점(품질 55 + 비용 15)에 유리 → <b>추천 = §경계 / bge / vector / K5.</b></div>
+
+      <h3>🥇 챔피언(hybrid / K8)은 언제?</h3>
+      <p>정확도(coverage)를 최우선하고 토큰을 감수할 수 있을 때. 앙상블(의미+키워드)이라 가장 튼튼하지만 토큰이 더 든다. → <a href="rag-ensemble.html">06 앙상블</a> 참고.</p>
+
+      <h3>➡️ 다음 단계</h3>
+      <p>이 finalist 2개를 <b>단계 2(챗봇에 적용)</b>로 넘긴다: 챔피언/추천 중 하나(또는 둘 다 눈검증)를 실제 <code>app.py</code>에 심고 → 연습 5문제 + holdout으로 확인 → 출전.</p>
+      <p class="note">근거: <a href="rag-log.html">08 작업일지</a>(실험 요약·K 결정·결정 일지) · 실험 방법 <a href="rag-experiments.html">05</a> · 앙상블 실측 <a href="rag-ensemble.html">06</a>.</p>
     </section>
 
     <p class="note" style="margin-top:2rem"><a href="index.html">← 홈으로</a></p>"""
