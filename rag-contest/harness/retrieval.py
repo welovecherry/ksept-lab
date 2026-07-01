@@ -40,22 +40,30 @@ def _vector_scores(query: str, records: list[dict], embed_model: str) -> list[fl
     return [1.0 - cosine_distance(r["embedding"], qv) for r in records]
 
 
-def _bm25_scores(query: str, records: list[dict]) -> list[float]:
-    bm25 = BM25Okapi([_tokenize(r["text"]) for r in records])
+def build_bm25(records: list[dict]) -> BM25Okapi:
+    """Build a reusable BM25 index once (the orchestrator reuses it per question)."""
+    return BM25Okapi([_tokenize(r["text"]) for r in records])
+
+
+def _bm25_scores(query: str, records: list[dict], bm25: BM25Okapi | None = None) -> list[float]:
+    bm25 = bm25 or build_bm25(records)
     return list(bm25.get_scores(_tokenize(query)))
 
 
 def retrieve(query: str, records: list[dict], method: str = "vector",
              k: int = 5, alpha: float = 0.5,
-             embed_model: str = "minilm") -> list[dict]:
-    """Top-k records for `query` under the chosen retrieval method."""
+             embed_model: str = "minilm", bm25: BM25Okapi | None = None) -> list[dict]:
+    """Top-k records for `query` under the chosen retrieval method.
+
+    Pass a prebuilt `bm25` (from build_bm25) to avoid rebuilding it per query.
+    """
     if method == "vector":
         scores = _vector_scores(query, records, embed_model)
     elif method == "bm25":
-        scores = _bm25_scores(query, records)
+        scores = _bm25_scores(query, records, bm25)
     elif method == "hybrid":
         vec = _minmax(_vector_scores(query, records, embed_model))
-        bm = _minmax(_bm25_scores(query, records))
+        bm = _minmax(_bm25_scores(query, records, bm25))
         scores = [alpha * v + (1 - alpha) * b for v, b in zip(vec, bm)]
     else:
         raise ValueError(f"unknown method: {method!r}")

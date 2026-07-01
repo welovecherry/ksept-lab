@@ -3,6 +3,17 @@
 > 🎬 **1막 = 파이프라인 고도화 + 실험 하네스 제작.** 이 문서는 그 중 **(B) 하네스**. **(A) 파이프라인**(단계 1~5, ✅완료)은 → [`06_30_act1_pipeline.md`](06_30_act1_pipeline.md).
 > 하네스가 완성돼야 **2막(밤샘 자동실험)** 을 돌릴 수 있다. 전략=[STRATEGY.md](../STRATEGY.md), 실행 런북=[EXPERIMENTS.md](../EXPERIMENTS.md).
 
+## ☀️ 내일 할 일 (아침 체크리스트 — 이거부터 읽어)
+
+> 어젯밤 그리드가 `experiments/runs.jsonl`에 검색 실험 결과(최대 792줄)를 채워둠. **내일은 실험을 다시 돌릴 일 없음** — 그 데이터를 *보는* 일만.
+
+- [ ] **0. 밤샘 결과 확인** — `wc -l experiments/runs.jsonl` (792에 가까우면 완료, 적으면 char 미완 → `python harness/orchestrate.py` 다시 켜 이어하기).
+- [ ] **1. UI 대시보드 (오늘의 핵심, ~2h)** — `runs.jsonl`을 읽어 *설정별 평균 coverage·recall·MRR* 을 순위표/그래프로. 이게 곧 리더보드(별도 `leaderboard.py` 불필요, 대시보드에 흡수). "어느 청킹·모델·방식·K가 최강?"이 한눈에.
+- [ ] **2. 최적 검색설정 확정** — 대시보드 1등(동률이면 더 싸고 단순한 쪽, [수정4]③). finalist **2개**를 생성 단계로([수정3]).
+- [ ] **아직 남은 것(오늘 밖)**: H4 인용검증기 · **2·3막 생성단계(H5, 유료·메인세션)** = 실제 답변 생성+LLM 심판. ← 검색이 아니라 *답변/인용(25점)* 은 여기서.
+
+> ⚠️ 오늘 밤+내일 대시보드로 끝나는 건 **"검색 최적화"** 까지. 대회 출전본(생성)은 그 다음.
+
 ## 사용자 시나리오 (가장 먼저 읽힌다)
 
 - **누가**: 홍정민 — 대회 전날, "어떤 검색 설정이 제일 잘 맞히나"를 *밤새 무인으로* 알아낼 **채점 기계**를 만드는 사람.
@@ -176,7 +187,7 @@
 
 ---
 
-### [ ] 단계 H3b: 오케스트레이터 루프 [🔴수정2·R4·R8] — *엔진*
+### [x] 단계 H3b: 오케스트레이터 루프 [🔴수정2·R4·R8] — *엔진* ✅ (오늘밤)
 
 > 관심사: *"H3a 도구 위에서 설정을 순서대로 돌려 runs.jsonl을 쌓는 for문."* — 무료 검색 축만(0~4).
 
@@ -241,7 +252,8 @@
 
 (작업 중 아래에 누적 — 정답 § 검증 근거, 예상과 다른 결과, 결정 변경 등)
 
-- **H3a (미커밋):** indexer 매개변수화 — `EMBED_MODELS`(minilm/bge/e5/gte + 프리픽스), `embed(texts,model,is_query)`·`_apply_prefix`(문서/질문 양측), `_chunk(text,chunker)`(section/char/route), `build_index(chunker,embed_model)`·`search(...,model_name)`. 신규 `retrieval.py`: vector/bm25(rank_bm25)/hybrid(min-max후 α혼합), 정렬은 인덱스기반(동점 dict비교 회피). 테스트 10건. 실측: 청커축 section 2184 vs char 5495, 3방식 모두 §91.151 1등, app.py search(minilm) 호환. minilm 프리픽스="" 라 기존 index.pkl 유효(재인덱싱 불필요). BM25 호출당 재빌드는 H3b에서 캐시 최적화 예정.
+- **H3b (미커밋, 밤샘 실행 중):** `orchestrate.py` 중첩 for(청킹·임베딩 바깥→인덱스빌드, 검색·K 안쪽) → `runs.jsonl`. [R4] 설정내용 이어하기, 인덱스당 BM25 1회 재사용(`build_bm25`+retrieve 옵션), [R8] 미니코퍼스 스모크. 작은 그리드 실측: section×minilm×[vector,bm25]×[3,5]=44줄, 재실행 0줄(이어하기✓), 24초. 미니 리더보드: K5>K3, vector MRR↑. 밤샘 그리드=section+char×4모델×3방식×3K=792줄(section 먼저). route는 전부 §태그라 section과 동일해 제외.
+- **H3a (957d514):** indexer 매개변수화 — `EMBED_MODELS`(minilm/bge/e5/gte + 프리픽스), `embed(texts,model,is_query)`·`_apply_prefix`(문서/질문 양측), `_chunk(text,chunker)`(section/char/route), `build_index(chunker,embed_model)`·`search(...,model_name)`. 신규 `retrieval.py`: vector/bm25(rank_bm25)/hybrid(min-max후 α혼합), 정렬은 인덱스기반(동점 dict비교 회피). 테스트 10건. 실측: 청커축 section 2184 vs char 5495, 3방식 모두 §91.151 1등, app.py search(minilm) 호환. minilm 프리픽스="" 라 기존 index.pkl 유효(재인덱싱 불필요). BM25 호출당 재빌드는 H3b에서 캐시 최적화 예정.
 - **H2 (7201435):** `score.py` `score_retrieval(hits,expected,k)→{recall,coverage,mrr}`. [R1] 판정 통일(section 메타 or char청킹은 텍스트 §번호, `§\s*num(?!\d)`로 더긴번호 오탐 차단), [R5] set 디둡·None폴백·§정규화·expected빈집합 None가드. 테스트 10건 통과(단일·교차0.5·무매치·MRR순위·char폴백·오탐방지·빈집합·디둡·정규화·k제한). H03 실측: top §91.151 → recall/coverage/mrr 모두 1.0.
 - **H1 (93ca724):** `verify_holdout.py`(읽기전용 증거수집)로 14문항 대조. **[R6] 결과: "정답 §가 인덱스에 없음" 0건** → 추출 누락 없음(파이프라인 건강).
   - 추정 7개 확정: H03 §91.151("day…30 minutes / night…45 minutes" 실재), H04 §61.109, H05 §61.103("Be at least 17 years"), H07 §61.23, H08 §73.13("advance permission"), H09 §61.57(7/7 키워드), H10 §61.57+§61.23, H11 §91.131.
