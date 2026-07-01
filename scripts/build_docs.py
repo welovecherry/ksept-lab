@@ -1342,6 +1342,20 @@ flowchart LR
         <li><b>승부는 "완전성"에서</b> — B(5.00) &gt; A(4.40) &gt; C(3.80).</li>
       </ul>
       <div class="ok"><b>반전 — 길이 ≠ 완전성:</b> C_warm이 가장 <b>장황</b>했는데(출력 577토큰, 800 상한에 3번 걸려 <b>잘림</b>) 완전성은 꼴찌. 우승 B는 <b>더 짧게(391) 쓰고도 다 덮음</b>. 즉 좋은 답은 *길어서*가 아니라 *빠짐없이 덮되 안 잘려서* 완전하다.</div>
+
+      <h3>🔬 live 재현 — 한 질문으로 눈으로 확인</h3>
+      <p>연료 규정 질문 하나에 A/B/C를 <b>실제로 돌려</b> 나란히 비교(검색은 셋 다 §91.151을 1등으로 물어옴 — 동일). 리더보드 결론이 그대로 재현됐다:</p>
+      <table class="cmp">
+        <tr><th>프롬프트</th><th>사실</th><th>출력토큰</th><th>비용</th><th>특징</th></tr>
+        <tr><td>A_current</td><td>✅ 정확</td><td>266</td><td>$0.0105</td><td>끝에 "50% 많음=야간 위험 반영" <b>해석 덧붙임(출처밖)</b></td></tr>
+        <tr><td><b>B_balanced</b> 🥇</td><td>✅ 정확</td><td><b>116</b></td><td><b>$0.0084</b></td><td>규정 사실만·모든 케이스(주/야/회전익) 덮고 <b>최단</b></td></tr>
+        <tr><td>C_warm</td><td>✅ 정확</td><td>324</td><td>$0.0115</td><td>"밤엔 길 잃을 위험…" <b>논평 + Practical Takeaway(출처밖)</b></td></tr>
+      </table>
+      <ul>
+        <li><b>왜 B가 이기나 눈에 보임:</b> 셋 다 사실은 같은데(30/45/20분), <b>A·C는 "야간이 더 위험" 같은 출처에 없는 해석</b>을 덧붙임 → 그라운딩 미세 이탈 + 토큰↑. B는 <b>규정 사실만</b>.</li>
+        <li><b>길이 ≠ 품질 재확인:</b> C가 토큰 최다(324)·비용 최고인데, 늘어난 건 <b>정보가 아니라 논평</b>. B는 <b>절반 이하 토큰</b>으로 같은 정보.</li>
+      </ul>
+      <div class="ok"><b>핵심:</b> 이 한 질문이 심판이 준 점수(B 완전성 5.0 · A·C 낮음)와 <b>정확히 일치</b> → <b>리더보드가 재현 가능한 판단</b>임을 live로 확인.</div>
       <p class="note">→ 최종 <code>SYSTEM_PROMPT = 그라운딩 규칙 + B_balanced 스타일</code>. 산출: <code>experiments/prompt_leaderboard.md</code>.</p>
       <h3>🧩 어떻게 반영했나 — 프롬프트도 "한 곳에서 공유" (DRY)</h3>
       <p>우승 문구를 여기저기 복붙하지 않는다. <b>app.py의 <code>SYSTEM_PROMPT</code> 한 곳을 단일 진실원</b>으로 두고, 실험 놀이터(<code>try_prompt.py</code>)와 생성기(<code>gen_answers.py</code>)가 <b>그걸 import해서 공유</b>한다 ([C2 DRY]).</p>
