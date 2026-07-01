@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FAA RAG Chat — How I Built It (Slides)</title>
+  <style>
+    :root {
+      --bg:#0d1117; --panel:#161b22; --border:#30363d; --fg:#e6edf3;
+      --muted:#8b949e; --accent:#58a6ff; --green:#3fb950; --amber:#e3b341; --red:#f85149;
+    }
+    * { box-sizing:border-box; }
+    html,body { margin:0; height:100%; }
+    body {
+      background:var(--bg); color:var(--fg); overflow:hidden;
+      font-family:-apple-system,"Apple SD Gothic Neo","Pretendard",system-ui,sans-serif;
+      line-height:1.6;
+    }
+
+    /* ---- progress bar ---- */
+    #bar { position:fixed; top:0; left:0; height:3px; background:var(--accent);
+      width:0; transition:width .25s ease; z-index:50; }
+
+    /* ---- deck / slides ---- */
+    .deck { height:100vh; display:flex; align-items:center; justify-content:center; }
+    .slide { display:none; width:min(960px,92vw); max-height:92vh; overflow-y:auto;
+      padding:1.5rem .5rem; animation:fade .35s ease; }
+    .slide.active { display:block; }
+    @keyframes fade { from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
+
+    .kicker { color:var(--accent); font-size:.8rem; font-weight:700; letter-spacing:.14em;
+      text-transform:uppercase; margin-bottom:.6rem; }
+    h1 { font-size:2.6rem; line-height:1.15; margin:.2rem 0 .8rem; }
+    h2 { font-size:1.9rem; line-height:1.2; margin:.2rem 0 1rem; }
+    p.lead { font-size:1.15rem; color:var(--muted); margin:.2rem 0 1rem; }
+    ul { margin:.6rem 0; padding-left:1.2rem; }
+    li { margin:.5rem 0; font-size:1.05rem; }
+    li b { color:var(--fg); }
+    code { background:#1f2530; padding:.1rem .4rem; border-radius:4px; font-size:.9em; }
+    .muted { color:var(--muted); }
+    .accent { color:var(--accent); }
+    .green { color:var(--green); }
+    .amber { color:var(--amber); }
+    .red { color:var(--red); }
+
+    /* ---- reusable callouts ---- */
+    .analogy { background:#11271a; border-left:4px solid var(--green); border-radius:0 8px 8px 0;
+      padding:.8rem 1.1rem; margin:1rem 0; font-size:1.05rem; }
+    .analogy b { color:var(--green); }
+    .warn { background:#2a1d11; border-left:4px solid var(--amber); border-radius:0 8px 8px 0;
+      padding:.8rem 1.1rem; margin:1rem 0; }
+    .warn b { color:var(--amber); }
+    .ok { background:#11271a; border-left:4px solid var(--green); border-radius:0 8px 8px 0;
+      padding:.8rem 1.1rem; margin:1rem 0; }
+    .ok b { color:var(--green); }
+
+    /* ---- flow diagram (CSS boxes + arrows) ---- */
+    .flow { display:flex; flex-wrap:wrap; align-items:stretch; gap:.5rem; margin:1.2rem 0; }
+    .node { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:.7rem .9rem; min-width:130px; flex:1; text-align:center; }
+    .node .t { font-weight:700; font-size:.98rem; }
+    .node .s { color:var(--muted); font-size:.82rem; margin-top:.2rem; }
+    .node.hot { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
+    .node.bad { border-color:var(--red); }
+    .arrow { align-self:center; color:var(--muted); font-size:1.5rem; flex:0 0 auto; }
+    @media (max-width:640px){ .flow{flex-direction:column;} .arrow{transform:rotate(90deg);} }
+
+    /* ---- two column ---- */
+    .cols { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin:1rem 0; }
+    @media (max-width:640px){ .cols{grid-template-columns:1fr;} }
+    .card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:1rem 1.2rem; }
+    .card h3 { margin:.1rem 0 .5rem; font-size:1.15rem; }
+    .card.good h3 { color:var(--green); }
+    .card.bad h3 { color:var(--red); }
+
+    /* ---- comparison table ---- */
+    table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.98rem; }
+    th,td { border:1px solid var(--border); padding:.55rem .8rem; text-align:left; }
+    th { background:#1f2530; }
+    td.num { font-variant-numeric:tabular-nums; text-align:right; }
+
+    /* ---- big stat ---- */
+    .stat { display:flex; gap:1.5rem; flex-wrap:wrap; margin:1.2rem 0; }
+    .stat .box { background:var(--panel); border:1px solid var(--border); border-radius:12px;
+      padding:1rem 1.4rem; text-align:center; flex:1; min-width:150px; }
+    .stat .n { font-size:2.2rem; font-weight:800; font-variant-numeric:tabular-nums; }
+    .stat .l { color:var(--muted); font-size:.85rem; margin-top:.2rem; }
+
+    /* term chip */
+    .term { background:#0f1a12; border-left:3px solid var(--green); border-radius:0 8px 8px 0;
+      padding:.5rem .9rem; margin:.6rem 0; font-size:.98rem; }
+    .term b { color:var(--green); }
+
+    /* ---- nav ---- */
+    #nav { position:fixed; bottom:1rem; right:1.2rem; display:flex; align-items:center;
+      gap:.7rem; z-index:50; }
+    #nav button { background:var(--panel); color:var(--fg); border:1px solid var(--border);
+      border-radius:8px; padding:.45rem .8rem; font-size:1rem; cursor:pointer; }
+    #nav button:hover { border-color:var(--accent); color:var(--accent); }
+    #count { color:var(--muted); font-variant-numeric:tabular-nums; font-size:.9rem; min-width:3.2em; text-align:center; }
+    #hint { position:fixed; bottom:1rem; left:1.2rem; color:var(--muted); font-size:.8rem; z-index:50; }
+    .title-foot { color:var(--muted); font-size:.95rem; margin-top:2rem; }
+  </style>
+</head>
+<body>
+  <div id="bar"></div>
+  <div class="deck">
+
+    <!-- ================= SLIDE 1 — TITLE ================= -->
+    <section class="slide active">
+      <div class="kicker">FAA RAG Contest · Build Log</div>
+      <h1>Building a RAG Chatbot<br>for <span class="accent">FAA Flight Rules</span></h1>
+      <p class="lead">How the answer pipeline works, the one experiment I tried,
+        and why I shipped the simple design.</p>
+      <div class="stat">
+        <div class="box"><div class="n accent">2,184</div><div class="l">indexed law chunks (14 CFR)</div></div>
+        <div class="box"><div class="n accent">bge · 1024d</div><div class="l">embedding model</div></div>
+        <div class="box"><div class="n accent">K = 5</div><div class="l">chunks per question</div></div>
+      </div>
+      <p class="title-foot">Corpus: 6 PDFs of U.S. Federal Aviation Regulations (Parts 1–91).
+        &nbsp;·&nbsp; welovecherry / ksept-lab</p>
+    </section>
+
+    <!-- ================= SLIDE 2 — WHAT IS RAG ================= -->
+    <section class="slide">
+      <div class="kicker">The idea</div>
+      <h2>What is RAG? An open-book exam.</h2>
+      <p class="lead">The model did <b>not</b> memorize the law. It answers from pages we hand it.</p>
+      <div class="analogy">
+        <b>Open-book exam:</b> the student (the model) knows nothing about aviation law.
+        A <b>librarian</b> reads the question, pulls the <b>5 most relevant pages</b>,
+        and puts them on the desk. The student writes the answer <b>using only those pages</b> —
+        and cites them. No outside guessing. This stops hallucination.
+      </div>
+      <div class="term"><b>RAG</b> = <b>R</b>etrieval <b>A</b>ugmented <b>G</b>eneration.
+        First <i>retrieve</i> the right law text, then <i>generate</i> an answer grounded in it.</div>
+      <div class="term"><b>Chunk</b> = one small piece of the law, cut so it is easy to search.
+        Our whole library is <b>2,184</b> chunks.</div>
+      <p class="muted">Why it fits this contest: answers must be <b>cited</b> and <b>verifiable</b> —
+        exactly what "answer only from the given pages" gives us.</p>
+    </section>
+
+    <!-- ================= SLIDE 3 — STATIC RAG FLOW (KEY) ================= -->
+    <section class="slide">
+      <div class="kicker">The design I shipped</div>
+      <h2>Static RAG — one search, one answer</h2>
+      <p class="lead">A straight line. No loop. This is the deployed chatbot.</p>
+
+      <div class="flow">
+        <div class="node"><div class="t">Question</div><div class="s">user asks</div></div>
+        <div class="arrow">→</div>
+        <div class="node hot"><div class="t">Search ONCE</div><div class="s">top-5 chunks</div></div>
+        <div class="arrow">→</div>
+        <div class="node"><div class="t">Trim</div><div class="s">keep relevant parts</div></div>
+        <div class="arrow">→</div>
+        <div class="node"><div class="t">Generate</div><div class="s">1 API call</div></div>
+        <div class="arrow">→</div>
+        <div class="node"><div class="t">Answer</div><div class="s">+ citations</div></div>
+      </div>
+
+      <div class="ok"><b>The heart of it:</b> the model gets <b>one message</b> with the found pages,
+        and <b>no search tool</b>. So it cannot ask for more. One round trip → cost stays <b>flat and
+        predictable</b> (~2.3k tokens).</div>
+
+      <ul>
+        <li><b>Search is free.</b> It is just math (comparing number vectors), done locally — <span class="green">$0 API</span>. Only the single <i>generate</i> call costs money.</li>
+        <li><b>Search and generate are separate.</b> I can tune retrieval all I want without raising the API bill.</li>
+      </ul>
+    </section>
+
+    <!-- ================= SLIDE 4 — INSIDE RETRIEVAL ================= -->
+    <section class="slide">
+      <div class="kicker">Under the hood</div>
+      <h2>Inside one retrieval (real log)</h2>
+      <p class="lead">Question: <span class="accent">"make a table covering all airspace classes"</span></p>
+
+      <div class="flow">
+        <div class="node"><div class="t">🔎 Embed</div><div class="s">question → 1024 numbers,<br>compare vs 2,184 chunks</div></div>
+        <div class="arrow">→</div>
+        <div class="node"><div class="t">📑 Top 5</div><div class="s">§71.1 · 71.33 · 71.31<br>· 71.71 · 71.61</div></div>
+        <div class="arrow">→</div>
+        <div class="node"><div class="t">✂️ Trim</div><div class="s">10,420 → 6,235 chars<br>(~40% smaller)</div></div>
+        <div class="arrow">→</div>
+        <div class="node"><div class="t">✍️ Answer</div><div class="s">grounded + cited</div></div>
+      </div>
+
+      <div class="stat">
+        <div class="box"><div class="n">2,184</div><div class="l">chunks compared</div></div>
+        <div class="box"><div class="n">~40%</div><div class="l">context trimmed away</div></div>
+        <div class="box"><div class="n">~1,558</div><div class="l">tokens sent (14 passages)</div></div>
+      </div>
+
+      <div class="warn"><b>⚠️ Look at the Top 5 — all from Part 71.</b>
+        Part 71 only says <i>where</i> airspace is drawn, not the <i>operating rules</i> (those live in
+        Part 91). One search landed on the wrong Part, so the table came out with holes
+        (Class B / C left blank). A single search can't go back for more.</div>
+    </section>
+
+    <!-- ================= SLIDE 5 — RETRIEVAL EXPERIMENTS (NOT AGENTIC) ================= -->
+    <section class="slide">
+      <div class="kicker">The experiments · offline</div>
+      <h2>First I tuned <span class="accent">search</span> — not the agent</h2>
+      <p class="lead">A deterministic grid search over the retrieval half. Same input → same result.
+        <b class="amber">No agent, no model loop</b> — just measuring.</p>
+
+      <div class="flow">
+        <div class="node"><div class="t">Embedding</div><div class="s">bge · gte<br>minilm · e5</div></div>
+        <div class="arrow">×</div>
+        <div class="node"><div class="t">Chunking</div><div class="s">§ boundary<br>vs characters</div></div>
+        <div class="arrow">×</div>
+        <div class="node"><div class="t">Method</div><div class="s">vector · bm25<br>· hybrid</div></div>
+        <div class="arrow">×</div>
+        <div class="node"><div class="t">K</div><div class="s">how many<br>chunks</div></div>
+      </div>
+
+      <div class="ok"><b>🏆 Winner:</b> § chunking + <b>bge</b> + hybrid + K8 →
+        coverage <b>0.864</b> (the right section is in the top 8, 86% of the time).
+        Value pick: bge + vector + <b>K5</b> = 0.818 with far fewer tokens.</div>
+
+      <ul style="margin:.4rem 0">
+        <li><b>Ensemble wins:</b> hybrid 0.864 &gt; meaning-only 0.773 &gt; keyword-only 0.636.</li>
+        <li><b>A good embedding saves tokens:</b> bge hits 0.818 at K5; minilm needs K8 to match.</li>
+        <li><b>§ boundaries beat character chunks:</b> the law is written in sections, so answers are too.</li>
+      </ul>
+    </section>
+
+    <!-- ================= SLIDE 6 — MY HARD DECISIONS (고민) ================= -->
+    <section class="slide">
+      <div class="kicker">The deliberations</div>
+      <h2>Three hard calls I had to make</h2>
+      <p class="lead">The <i>why</i> behind each choice — the part I care about most.</p>
+
+      <div class="card" style="margin:.6rem 0">
+        <h3 class="amber">① Kill the overnight run?</h3>
+        <p style="margin:.2rem 0">The character-chunk index froze at 495/792 — the process had swollen to
+        16&nbsp;GB and was thrashing swap. <b>Decision: kill it.</b>
+        <span class="muted">Why: the section run (my real winner) was already done and safe — append-only
+        kept all 495 lines. Character chunking was a free bonus, not worth cooking the Mac all night.</span></p>
+      </div>
+      <div class="card" style="margin:.6rem 0">
+        <h3 class="amber">② Which embedding is #1?</h3>
+        <p style="margin:.2rem 0">Three models <b>tied</b> on coverage (0.864). And the "strong" model e5 came
+        <b>last</b>. <b>Decision: bge</b> (best MRR, 0.636).
+        <span class="muted">Why: when coverage ties, rank quality + small-K efficiency decide. e5 losing even to
+        gte smelled like a usage bug (missing query:/passage: prefix), so I didn't throw it away.</span></p>
+      </div>
+      <div class="card" style="margin:.6rem 0">
+        <h3 class="amber">③ Drop K from 8 to 5?</h3>
+        <p style="margin:.2rem 0">I measured real calls: output is a flat ~100 tokens, and <b>91–96% of cost is
+        input</b> (K × passages). K8 = 5,136 vs K5 = 2,656. <b>Decision: K5.</b>
+        <span class="muted">Why: K is the only real cost lever. Coverage dips 0.864→0.818 (tiny) but tokens
+        halve — a great trade for the 15-point Cost score.</span></p>
+      </div>
+
+      <div class="ok"><b>One theme:</b> every call was solved by <b>measuring, not guessing</b> — and by
+        weighing <b>quality ↔ cost</b>.</div>
+    </section>
+
+    <!-- ================= SLIDE 7 — AGENTIC EXPERIMENT ================= -->
+    <section class="slide">
+      <div class="kicker">The experiment · online</div>
+      <h2>Then I tried an agentic loop — great answers, huge cost</h2>
+      <p class="lead">Give the model a search tool and let it search as many times as it wants.</p>
+
+      <div class="cols">
+        <div class="card good">
+          <h3>✅ The win</h3>
+          <p>On the airspace table, the agent searched <b>13 times</b>. It noticed Part 71 was
+          only designations and <b>searched Part 91 by itself</b> — real self-correction.
+          It filled the <b>complete</b> B/C/D/E/G table.</p>
+        </div>
+        <div class="card bad">
+          <h3>❌ The disaster</h3>
+          <p>Tokens exploded. Each turn <b>re-sends the whole history</b>, so 13 searches pile up.
+          The input grew to ~80k. That is the built-in cost of the loop.</p>
+        </div>
+      </div>
+
+      <div class="stat">
+        <div class="box"><div class="n green">2,949</div><div class="l">static RAG (tokens)</div></div>
+        <div class="box"><div class="n red">81,320</div><div class="l">agentic loop (tokens)</div></div>
+        <div class="box"><div class="n red">27×</div><div class="l">more expensive</div></div>
+      </div>
+
+      <div class="warn"><b>Why it grows so fast:</b> the model has no memory, so every turn we
+        <b>resend all earlier search results</b>. Search N times → cost adds up like 1+2+3+…+N.
+        That is roughly <b>N² (quadratic)</b> — a few searches are fine, 13 is a bomb.</div>
+    </section>
+
+    <!-- ================= SLIDE 8 — THE DECISION ================= -->
+    <section class="slide">
+      <div class="kicker">The decision</div>
+      <h2>I rolled back to static RAG</h2>
+      <p class="lead">Better answers weren't worth blowing the cost budget.</p>
+
+      <table>
+        <tr><th>Question type</th><th>Static RAG</th><th>Agentic</th><th>Quality</th></tr>
+        <tr><td>Specific (contest style)</td><td class="num green">2,281</td><td class="num">4,282 · 1 search</td><td>both correct</td></tr>
+        <tr><td>Broad ("all classes")</td><td class="num">2,949 · <span class="amber">gaps</span></td><td class="num red">81,320 · 13 searches</td><td>agentic wins</td></tr>
+      </table>
+
+      <ul>
+        <li><b>The rubric rewards cost.</b> Cost Management is 15 points and literally says
+          <i>"as few tokens as possible"</i>. 81k works against that.</li>
+        <li><b>Contest questions are specific.</b> 4 of 5 practice questions live in a single Part —
+          static answers them perfectly and cheaply.</li>
+        <li><b>Agentic is kept, but capped.</b> A hard limit of <code>MAX_SEARCHES = 3</code> keeps even
+          a broad question near ~15k. It waits on the bench as a ready backup.</li>
+      </ul>
+
+      <div class="ok"><b>Rule check:</b> the contest never requires an agentic loop. It scores
+        <b>results only</b> (quality, citations, cost). Static RAG is fully compliant — and safest on cost.</div>
+    </section>
+
+    <!-- ================= SLIDE 9 — FINAL SETUP ================= -->
+    <section class="slide">
+      <div class="kicker">Summary</div>
+      <h2>Final setup &amp; the decisions behind it</h2>
+
+      <div class="cols">
+        <div class="card">
+          <h3 class="accent">The build</h3>
+          <ul style="margin:0">
+            <li><b>Embedding:</b> bge (1024d) — best recall, wins with a small K</li>
+            <li><b>Retrieval:</b> § boundary chunking + hybrid/vector, <b>K=5</b></li>
+            <li><b>Generate:</b> single-shot, one API call</li>
+            <li><b>Citations:</b> real § numbers, e.g. <code>§91.151 (Part 91)</code></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3 class="accent">Key decisions</h3>
+          <ul style="margin:0">
+            <li><b>K 8→5:</b> half the tokens, tiny recall loss</li>
+            <li><b>Static over agentic:</b> flat cost beats 27× spikes</li>
+            <li><b>Cap the agent:</b> 3 searches max, kept as backup</li>
+            <li><b>Log every attempt:</b> tokens/cost to <code>chat_attempts.jsonl</code></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="ok"><b>One theme across every choice:</b> <i>measure, don't guess</i> — and always
+        weigh <b>quality ↔ cost</b>. That is how each decision here was made.</div>
+
+      <p class="title-foot">Thanks! &nbsp;·&nbsp; Questions welcome.</p>
+    </section>
+
+  </div>
+
+  <div id="hint">← → or Space to move · F for fullscreen</div>
+  <div id="nav">
+    <button id="prev" aria-label="previous">‹</button>
+    <span id="count">1 / 9</span>
+    <button id="next" aria-label="next">›</button>
+  </div>
+
+  <script>
+    const slides = [...document.querySelectorAll('.slide')];
+    const bar = document.getElementById('bar');
+    const count = document.getElementById('count');
+    let i = 0;
+
+    function show(n){
+      i = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach((s, k) => s.classList.toggle('active', k === i));
+      count.textContent = `${i + 1} / ${slides.length}`;
+      bar.style.width = ((i + 1) / slides.length * 100) + '%';
+    }
+    function next(){ show(i + 1); }
+    function prev(){ show(i - 1); }
+
+    document.getElementById('next').onclick = next;
+    document.getElementById('prev').onclick = prev;
+    document.addEventListener('keydown', e => {
+      if (['ArrowRight',' ','PageDown'].includes(e.key)) { e.preventDefault(); next(); }
+      else if (['ArrowLeft','PageUp'].includes(e.key)) { e.preventDefault(); prev(); }
+      else if (e.key === 'Home') show(0);
+      else if (e.key === 'End') show(slides.length - 1);
+      else if (e.key.toLowerCase() === 'f') {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
+      }
+    });
+    show(0);
+  </script>
+</body>
+</html>
