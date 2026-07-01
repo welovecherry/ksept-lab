@@ -219,7 +219,8 @@
 
       <ul style="margin:.4rem 0">
         <li><b>Ensemble wins:</b> hybrid 0.864 &gt; meaning-only 0.773 &gt; keyword-only 0.636.</li>
-        <li><b>A good embedding saves tokens:</b> bge hits 0.818 at K5; minilm needs K8 to match.</li>
+        <li><b>A good embedding saves tokens:</b> bge is a strong English search model, so it
+          puts the right § near the top even at K5 (minilm needs K8) — fewer pieces, lower cost.</li>
         <li><b>§ boundaries beat character chunks:</b> the law is written in sections, so answers are too.</li>
       </ul>
     </section>
