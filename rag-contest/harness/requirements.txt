@@ -1,0 +1,2 @@
+# PDF extraction for the FAA 14 CFR corpus (harness/extract_faa.py)
+pymupdf>=1.24   # primary extractor: fast, clean single-column text
