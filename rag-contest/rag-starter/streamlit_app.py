@@ -1,8 +1,8 @@
 """Streamlit chat UI for the FAA RAG contest — stage 1 skeleton.
 
-Reuses indexer.search (vector retrieval) and the same SYSTEM_PROMPT as the Flask
-backend, but calls Anthropic directly so later stages can stream natively and we
-never have to edit app.py (zero conflict with the output/prompt session).
+Serves the SAME champion retrieval as the Flask backend (harness.retrieval +
+indexer CHAMPION_* constants + the self-describing index.meta.json), but calls
+Anthropic directly so later stages can stream natively and we never edit app.py.
 
 Run from rag-starter/:  streamlit run streamlit_app.py
 
@@ -17,12 +17,18 @@ import streamlit as st
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
-from indexer import load_index, search
+from indexer import (
+    CHAMPION_K,
+    CHAMPION_METHOD,
+    embed,
+    load_index,
+    load_index_embed_model,
+)
+from harness.retrieval import build_bm25, retrieve
 
 load_dotenv(Path(__file__).parent / ".env")  # ANTHROPIC_API_KEY (shared class key)
 
 MODEL = "claude-sonnet-4-6"
-TOP_K = 5
 MAX_TOKENS = 1024
 AVATARS = {"user": "🧑", "assistant": "🛩️"}
 
@@ -47,8 +53,24 @@ sources do not cover.
 
 @st.cache_resource
 def get_index():
-    """Load the pickled index once per server process (heavy — cache it)."""
-    return load_index()
+    """Load the champion index once per process, mirroring app.py.
+
+    Returns (index, embed_model, bm25). embed_model comes from the index's own
+    index.meta.json (A1 single source of truth) so queries use the SAME model the
+    vectors were built with. A dimension probe fails loud on mismatch — the
+    "no error, meaningless results" trap A1 guards against. BM25 is built once and
+    only when the champion method needs it (pure-vector champions skip it).
+    """
+    index = load_index()
+    embed_model = load_index_embed_model()
+    probe_dim = len(embed(["dimension probe"], embed_model, is_query=True)[0])
+    if probe_dim != len(index[0]["embedding"]):
+        raise RuntimeError(
+            f"embed model {embed_model!r} is {probe_dim}-dim but index is "
+            f"{len(index[0]['embedding'])}-dim — rebuild the index or fix the model."
+        )
+    bm25 = build_bm25(index) if CHAMPION_METHOD in ("bm25", "hybrid") else None
+    return index, embed_model, bm25
 
 
 @st.cache_resource
@@ -56,14 +78,15 @@ def get_client():
     return Anthropic()
 
 
-def answer(question: str, index: list[dict]) -> tuple[str, list[dict]]:
-    """Retrieve top-K chunks, build the numbered context block, generate an answer.
+def answer(question, index, embed_model, bm25):
+    """Retrieve champion top-K chunks, build the context block, generate an answer.
 
-    Mirrors app.py's /api/chat so the two frontends behave identically. Returns
-    the answer text and the hits (slimmed) so stage 2 can render source cards
-    without re-searching.
+    Mirrors app.py's /api/chat (same retrieve() call) so both frontends behave
+    identically. Returns the answer text and the hits (slimmed) so stage 2 can
+    render source cards without re-searching.
     """
-    hits = search(question, index, k=TOP_K)
+    hits = retrieve(question, index, method=CHAMPION_METHOD, k=CHAMPION_K,
+                    embed_model=embed_model, bm25=bm25)
     context = "\n\n".join(f"[{i + 1}] {h['text']}" for i, h in enumerate(hits))
     user_content = f"CONTEXT:\n{context}\n\nQUESTION:\n{question}"
 
@@ -74,7 +97,7 @@ def answer(question: str, index: list[dict]) -> tuple[str, list[dict]]:
         messages=[{"role": "user", "content": user_content}],
     )
     answer_text = resp.content[0].text
-    # Slim the hits: drop the 384-dim embedding before it lands in session_state.
+    # Slim the hits: drop the embedding vector before it lands in session_state.
     slim = [{k: h.get(k) for k in ("source", "chunk_index", "section", "part", "text")}
             for h in hits]
     return answer_text, slim
@@ -83,7 +106,7 @@ def answer(question: str, index: list[dict]) -> tuple[str, list[dict]]:
 st.set_page_config(page_title="FAA RAG Chat", page_icon="🛩️")
 st.title("🛩️ FAA RAG Chat")
 
-index = get_index()
+index, embed_model, bm25 = get_index()
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -100,7 +123,7 @@ if prompt := st.chat_input("Ask a question about 14 CFR…"):
 
     with st.chat_message("assistant", avatar=AVATARS["assistant"]):
         with st.spinner("Searching + answering…"):
-            reply, hits = answer(prompt, index)
+            reply, hits = answer(prompt, index, embed_model, bm25)
         st.markdown(reply)
 
     st.session_state.messages.append({"role": "assistant", "text": reply, "hits": hits})
