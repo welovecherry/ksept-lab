@@ -1000,7 +1000,7 @@ flowchart LR
       </div>
 
       <div class="step">
-        <h4>단계 4 — FAA 인덱싱 + §·part 메타 <span class="st now">✅ 검증 통과 · 커밋 대기</span></h4>
+        <h4>단계 4 — FAA 인덱싱 + §·part 메타 <span class="st done">✅ 완료 · a2f9339</span></h4>
         <dl>
           <dt>목적</dt><dd>아폴로를 빼고 FAA만 §경계로 청킹, 각 레코드에 <code>section</code>·<code>part</code> 저장.</dd>
           <dt>결과</dt><dd>아폴로 21개 → <code>_apollo_backup/</code> 이동. FAA <b>2,184 chunks</b>(part91 256·vol1 1,719 등), 전 레코드 section·part, <b>part 불일치 0</b>. 청킹 라우팅은 파일명 하드코딩 대신 <b>내용에 <code>&lt;!-- §</code> 있으면 §단위</b>로(T4/P2 해결).</dd>
