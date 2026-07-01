@@ -41,8 +41,9 @@ RAG_PAGES = [
     ("rag-cache.html", "03", "캐시 원리", ["embed-tutorial"]),
     ("rag-setup.html", "04", "모델 세팅", ["embed-setup"]),
     ("rag-experiments.html", "05", "실험 계획", ["experiments"]),
-    ("rag-progress.html", "06", "진행 단계", ["progress"]),
-    ("rag-log.html", "07", "작업 일지", ["log", "ideas", "questions"]),
+    ("rag-ensemble.html", "06", "앙상블", ["ensemble"]),
+    ("rag-progress.html", "07", "진행 단계", ["progress"]),
+    ("rag-log.html", "08", "작업 일지", ["log", "ideas", "questions"]),
 ]
 RAG_TITLES = {  # 각 페이지 h1 (사이드바 짧은 제목과 별개)
     "rag-project.html": "🛩️ RAG 콘테스트 프로젝트",
@@ -51,6 +52,7 @@ RAG_TITLES = {  # 각 페이지 h1 (사이드바 짧은 제목과 별개)
     "rag-cache.html": "🎓 캐시 원리 튜토리얼",
     "rag-setup.html": "⚙️ 임베딩 모델 세팅",
     "rag-experiments.html": "🧪 실험 계획",
+    "rag-ensemble.html": "🧩 앙상블 — 모델 합치기",
     "rag-progress.html": "🛠️ 진행 단계 (Phase 0~1)",
     "rag-log.html": "📝 작업 일지 · 메모 · 질문",
 }
@@ -812,6 +814,58 @@ export TRANSFORMERS_OFFLINE=1</code></pre>
         <a href="rag-progress.html"><b>06 진행 단계</b></a>.</p>
 
       <p class="note">원본 상세: <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/STRATEGY.md">STRATEGY.md</a>(전략·3막) · <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/EXPERIMENTS.md">EXPERIMENTS.md</a>(채점·체크리스트) · <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/todo/06_30_phase0_1.md">todo/06_30_phase0_1.md</a>(Phase 0~1 실행계획)</p>
+    </section>
+
+    <section class="sec" id="ensemble">
+      <h2>🧩 앙상블 — 여러 모델(방법) 합치기</h2>
+      <p class="analogy">🏥 <b>비유:</b> 한 명의 의사보다 <b>여러 과 의사의 협진</b>이 더 정확하듯, 검색도 <b>여러 방법의 결과를 합치면</b> 더 잘 찾는다. 이게 <b>앙상블</b>.</p>
+
+      <h3>① 앙상블이 뭐야 (한 문장)</h3>
+      <p><b>여러 개의 의견을 모아 하나의 더 나은 결론</b>을 내는 것. 딥러닝에서 여러 모델 예측을 합쳐 정확도를 올리던 그거 맞다.</p>
+
+      <h3>② 우리 프로젝트에선 = "검색 방법 두 개를 합친다"</h3>
+      <p>챗봇이 답의 근거를 찾는 방법은 크게 둘이 있다:</p>
+      <table class="cmp">
+        <tr><th>방법</th><th>잘하는 것</th><th>비유</th></tr>
+        <tr><td><b>의미 검색</b><br>(dense)</td><td>말을 바꿔 물어도 <b>뜻</b>으로 찾음<br>("연료 얼마나?" → fuel reserve 조항)</td><td>뜻을 이해하는 사서</td></tr>
+        <tr><td><b>키워드 검색</b><br>(BM25)</td><td><b>정확한 단어·번호</b>를 안 놓침<br>("§91.151", "30 minutes", "Class B")</td><td>색인 카드로 찾는 사서</td></tr>
+      </table>
+      <p>이 <b>둘을 합친 게 "하이브리드 검색"</b>이고, 그게 바로 앙상블이다.</p>
+
+      <div class="mermaid">
+flowchart LR
+    Q["Question<br/>질문"] --> D["Dense search<br/>의미 검색"]
+    Q --> B["BM25 search<br/>키워드 검색"]
+    D --> F["Rank fusion<br/>등수 합치기"]
+    B --> F
+    F --> A["Best passages<br/>→ 답 생성"]
+      </div>
+
+      <h3>③ 왜 항공법에 딱 맞나</h3>
+      <div class="ok"><b>서로 다른 실수를 하니까 서로를 메운다.</b> 의미 검색은 뜻은 알아도 정확한 조항 번호를 흘릴 수 있고, 키워드 검색은 번호는 정확히 짚어도 말 바꾼 질문을 놓친다. 항공법 답은 <b>뜻도, 정확한 §번호·수치도</b> 둘 다 필요(인용 25점!) → 합치면 강해진다.</div>
+
+      <h3>④ 딥러닝 앙상블과 딱 한 가지 차이</h3>
+      <p>예전엔 여러 모델의 <b>예측값(숫자)을 평균</b>냈지? 검색 앙상블은 평균이 아니라 <b>"등수표를 합친다".</b> 각 방법이 "1등은 이 문단, 2등은 저 문단…" 순위를 내면, 그 순위들을 합산해 종합 순위를 만든다. (모델마다 숫자 좌표계가 달라서 <b>벡터를 평균내면 오히려 망가진다.</b>)</p>
+
+      <h3>⑤ 어떤 앙상블을 쓸까 (결정)</h3>
+      <table class="cmp">
+        <tr><th>종류</th><th>쓸까?</th><th>이유 (한 줄)</th></tr>
+        <tr><td>하이브리드 (의미+키워드)</td><td>✅ <b>쓴다</b></td><td>무료·효과 큼. 이미 <a href="rag-experiments.html">실험 3</a>에 있음</td></tr>
+        <tr><td>리랭킹 (재정렬)</td><td>🟡 여유 시</td><td>후보를 많이 건진 뒤 정밀 재정렬. 무료지만 느려짐</td></tr>
+        <tr><td>임베딩 여러 개 (bge+e5)</td><td>🟡 후순위</td><td>비슷한 둘이라 이득 적고 인덱스 2벌 필요</td></tr>
+        <tr><td>답 여러 번 생성 투표</td><td>❌ 안 씀</td><td>Claude를 N번 불러 <b>비용 N배</b> → 비용 점수 손해</td></tr>
+      </table>
+
+      <h3>⑥ 이번 상황 정리 (내 고민 → 결정)</h3>
+      <div class="term"><b>고민:</b> 딥러닝처럼 임베딩 모델 여러 개를 앙상블하면 더 좋아질까?<br>
+      <b>알게 된 것:</b> RAG 앙상블은 벡터가 아니라 <b>검색 결과(등수)를 합치는 것</b>. 비슷한 임베딩 둘보다 <b>성격이 다른 의미+키워드 조합</b>이 이 법조문 데이터엔 더 이득.<br>
+      <b>결정:</b> <b>하이브리드(의미+키워드)에 집중.</b> 리랭킹·다중임베딩은 시간 남으면. 생성 앙상블은 비용 때문에 제외.</div>
+
+      <h3>용어 미니사전</h3>
+      <div class="term"><b>앙상블</b> — 여러 방법의 결과를 합쳐 더 나은 결론.</div>
+      <div class="term"><b>하이브리드 검색</b> — 의미 검색 + 키워드 검색을 함께 쓰기.</div>
+      <div class="term"><b>순위 융합(RRF)</b> — 여러 검색의 <b>등수표를 합산</b>하는 표준 방법.</div>
+      <div class="term"><b>리랭킹</b> — 후보를 많이 건진 뒤 더 똑똑한 모델로 <b>다시 줄 세우기</b>.</div>
     </section>
 
     <section class="sec" id="progress">
