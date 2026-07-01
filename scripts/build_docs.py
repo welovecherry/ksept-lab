@@ -959,6 +959,13 @@ flowchart LR
         <li><b>보류:</b> Streamlit UI는 대회 후 여유 있으면.</li>
       </ul>
 
+      <h3>2026-06-30 — 임베딩 후보 3종 프리페치 완료</h3>
+      <ul>
+        <li><b>한 일:</b> bge·e5·gte를 로컬 캐시(1.2G·1.2G·640M) + 스모크 통과. 전부 1024d, "연료 조항 &gt; 아폴로" 유사도 순서 정상.</li>
+        <li><b>의미:</b> 후보 4종(+MiniLM) 모두 실전 준비 → 당일 다운로드 리스크 제거, 임베딩 교체가 "이름만 바꾸면" 되는 상태.</li>
+        <li><b>상세:</b> 실측표는 <a href="rag-setup.html">04 모델 세팅</a>, 준비 카드는 <a href="rag-progress.html">07 진행 단계</a>.</li>
+      </ul>
+
       <div class="ph"><b>다음 칸 — 날짜별로 계속 기록:</b> 오늘 한 일 / 막힌 점 / 해결.</div>
     </section>
 
