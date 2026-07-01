@@ -12,6 +12,7 @@ session extracts the prompt to backend/prompts.py, replace the constant below
 with:  from prompts import SYSTEM_PROMPT
 """
 import json
+import pickle
 import re
 from datetime import datetime
 from pathlib import Path
@@ -46,8 +47,10 @@ PRICES = {"claude-sonnet-4-6": (3.0, 15.0)}
 
 # Empty-state example questions (from CONTEST.md practice set) — one click to ask.
 EXAMPLES = [
+    # Multi-part question that spans Part 71 (designations) + Part 91 (operating rules):
+    # single-shot under-covers it, agentic recovers the rest — the sharpest side-by-side.
+    "make a table covering all airspace classes",
     "What are the fuel-reserve requirements for VFR flight, day versus night?",
-    "What aeronautical experience is required for a private pilot certificate with an airplane single-engine rating?",
     "How do operating requirements differ between Class B and Class C airspace?",
 ]
 
@@ -90,6 +93,35 @@ def get_index():
         )
     bm25 = build_bm25(index) if CHAMPION_METHOD in ("bm25", "hybrid") else None
     return index, embed_model, bm25
+
+
+def available_models() -> list[str]:
+    """Embed models we have a prebuilt index for on disk (index.<model>.pkl).
+
+    Lets the sidebar offer a live model switch: each model needs its own index
+    (its vectors), so we build one file per model and pick between them.
+    """
+    return sorted(p.stem.split(".", 1)[1] for p in
+                  Path(__file__).parent.glob("index.*.pkl"))
+
+
+@st.cache_resource
+def get_index_for(model: str):
+    """Load the prebuilt index for `model` from index.<model>.pkl (cached per model).
+
+    Query with the SAME model the vectors were built with (A1). A dimension probe
+    fails loud on mismatch. BM25 only when the champion method needs it.
+    """
+    with (Path(__file__).parent / f"index.{model}.pkl").open("rb") as f:
+        index = pickle.load(f)
+    probe_dim = len(embed(["dimension probe"], model, is_query=True)[0])
+    if probe_dim != len(index[0]["embedding"]):
+        raise RuntimeError(
+            f"embed model {model!r} is {probe_dim}-dim but its index is "
+            f"{len(index[0]['embedding'])}-dim — rebuild index.{model}.pkl."
+        )
+    bm25 = build_bm25(index) if CHAMPION_METHOD in ("bm25", "hybrid") else None
+    return index, bm25
 
 
 @st.cache_resource
@@ -295,6 +327,81 @@ def stream_answer(question, hits, placeholder, history):
     return full, meta
 
 
+# ── Agentic mode (model-driven multi-search) ─────────────────────────────────
+# Ported from harness/agent_rag.py to reuse the already-loaded index/model/client
+# (importing app.py would fire its module-level side effects). The model calls
+# search_cfr as many times as it needs (capped) so a multi-part question — whose
+# parts live in different Parts (airspace ops in Part 91, designations in Part 71)
+# — can be recovered by a second/third search the single-shot path can't issue.
+_MAX_TURNS, _MAX_SEARCHES = 6, 3
+SEARCH_TOOL = {
+    "name": "search_cfr",
+    "description": (
+        "Search the 14 CFR corpus for passages relevant to a query. Returns numbered "
+        "passages [n] you must cite. Call it MULTIPLE times with different queries to "
+        "cover every part of a multi-topic question — e.g. airspace OPERATING rules are "
+        "in Part 91 (§91.131 Class B, §91.130 Class C), NOT the Part 71 designation "
+        "sections. Search again with a refined query until the results cover the question."
+    ),
+    "input_schema": {"type": "object",
+                     "properties": {"query": {"type": "string", "description": "search query"}},
+                     "required": ["query"]},
+}
+AGENTIC_SYSTEM = SYSTEM_PROMPT + (
+    "\n\nYou have a search_cfr tool. Search BEFORE answering, and issue extra searches "
+    "(different queries) until you have every part the question needs. Then answer from "
+    "the search results only, citing [n].")
+
+def agentic_answer(question, index, embed_model, bm25, step):
+    """Model-driven RAG: the model issues search_cfr calls (capped) then answers.
+
+    Returns (text, meta, registry). `registry` is every retrieved window across all
+    searches, GLOBAL-indexed so [n] resolves; `step` logs one process line per search.
+    """
+    client = get_client()
+    messages = [{"role": "user", "content": question}]
+    registry, tin, tout, searches = [], 0, 0, 0
+    for _turn in range(_MAX_TURNS):
+        step(f"🧠 round {_turn + 1}: asking the model what to search next…")
+        resp = client.messages.create(model=MODEL, max_tokens=900, system=AGENTIC_SYSTEM,
+                                       tools=[SEARCH_TOOL], messages=messages)
+        tin += resp.usage.input_tokens
+        tout += resp.usage.output_tokens
+        if resp.stop_reason != "tool_use":
+            text = "".join(b.text for b in resp.content if b.type == "text")
+            break
+        messages.append({"role": "assistant", "content": resp.content})
+        results = []
+        for b in resp.content:
+            if b.type != "tool_use" or b.name != "search_cfr":
+                continue
+            if searches < _MAX_SEARCHES:
+                qy = b.input["query"]
+                hits = select_context(qy, retrieve(qy, index, method=CHAMPION_METHOD,
+                                                   k=CHAMPION_K, embed_model=embed_model,
+                                                   bm25=bm25), embed_model)
+                start = len(registry)
+                registry.extend(hits)
+                secs = " · ".join(dict.fromkeys(h.get("section") or h.get("source") for h in hits))
+                step(f"🔎 search {searches + 1}: *{qy}* → {secs}")
+                content = "\n\n".join(f"[{start + i + 1}] {h['text']}" for i, h in enumerate(hits))
+                searches += 1
+            else:
+                # Budget hit: silently tell the model to stop and answer. No trace line —
+                # it can fire once per extra tool call and just clutters the live view.
+                content = ("Search budget reached. STOP searching. Write your final answer "
+                           "NOW from the passages already returned, citing [n].")
+            results.append({"type": "tool_result", "tool_use_id": b.id, "content": content})
+        messages.append({"role": "user", "content": results})
+    else:
+        text = ""  # ran out of turns without a final answer
+    meta = {"model": MODEL, "tokens_in": tin, "tokens_out": tout,
+            "cost_usd": _cost_usd(MODEL, tin, tout),
+            "method": f"agentic · {searches} searches", "k": CHAMPION_K,
+            "searches": searches}
+    return text, meta, registry
+
+
 def _pipeline_dot(found: list[str], n_passages: int, tokens: int) -> str:
     """A tiny Graphviz flow of THIS turn's pipeline (native — no mermaid/CDN dep).
 
@@ -376,6 +483,98 @@ def render_footer(meta: dict | None, citations: list[dict], text: str,
             st.markdown("⚠︎ Out of scope — I answer only from the indexed 14 CFR material.")
 
 
+# ── Side-by-side compare: run BOTH retrieval modes on every question ──────────
+_LABELS = {"single-shot": "🎯 single-shot", "agentic": "🤖 agentic — fills the gaps"}
+
+
+def _render_result(res: dict, query: str | None) -> None:
+    """Render one column: a factors line + the answer (inline source cards) + panel/footer."""
+    m = res.get("meta") or {}
+    if m:
+        calls = f"{m['searches']} searches" if m.get("searches") is not None else "1 retrieval"
+        bits = [f"🔎 **{calls}**"]
+        if m.get("passages") is not None:
+            bits.append(f"📄 {m['passages']} passages")
+        bits.append(f"🔢 {m['tokens_in'] + m['tokens_out']:,} tok")
+        bits.append(f"💰 ~${m['cost_usd']:.4f}")
+        st.markdown(" · ".join(bits))
+    render_answer(res["text"], res.get("citations", []), query)
+    render_footer(res.get("meta"), res.get("citations", []), res["text"],
+                  res.get("process"), graph=res.get("graph"), query=query)
+
+
+def _render_compare(compare: dict, query: str | None) -> None:
+    """Two columns — single-shot on the left, agentic on the right."""
+    for col, name in zip(st.columns(2), ("single-shot", "agentic")):
+        with col:
+            st.markdown(f"#### {_LABELS[name]}")
+            _render_result(compare[name], query)
+
+
+def run_single_shot(q: str, search_query: str, history: list) -> dict:
+    """One retrieve → select_context → one generation. Returns a result dict."""
+    steps = []
+    hits = retrieve(search_query, index, method=CHAMPION_METHOD, k=CHAMPION_K,
+                    embed_model=embed_model, bm25=bm25)
+    found = list(dict.fromkeys(h.get("section") or h.get("source") for h in hits))
+    raw = sum(len(h.get("text", "")) for h in hits)
+    steps.append(f"🔎 Embedded on **{embed_model}**; top-{len(hits)}: {' · '.join(found)}")
+    hits = select_context(search_query, hits, embed_model)
+    sel = sum(len(h.get("text", "")) for h in hits)
+    steps.append(f"📉 Trimmed **{raw:,} → {sel:,} chars** · {len(hits)} passages · ≈{sel // 4:,} tokens")
+    resp = get_client().messages.create(
+        model=MODEL, max_tokens=MAX_TOKENS, system=SYSTEM_PROMPT,
+        messages=history + [{"role": "user",
+                             "content": f"CONTEXT:\n{format_context(hits)}\n\nQUESTION:\n{q}"}])
+    text = resp.content[0].text
+    meta = {"model": resp.model, "tokens_in": resp.usage.input_tokens,
+            "tokens_out": resp.usage.output_tokens,
+            "cost_usd": _cost_usd(resp.model, resp.usage.input_tokens, resp.usage.output_tokens),
+            "method": "single-shot", "k": CHAMPION_K, "passages": len(hits)}
+    return {"text": text, "meta": meta, "citations": _cited(text, hits),
+            "process": steps, "graph": _pipeline_dot(found, len(hits), sel // 4)}
+
+
+def run_agentic(q: str, draft: str | None = None, on_step=None) -> dict:
+    """Model-driven multi-search RAG (search_cfr loop). Returns a result dict.
+
+    `on_step` (optional) is called with each progress line as it happens, so the
+    column can show the loop working live instead of just a spinner.
+
+    If `draft` (the single-shot answer) is given, the model is told to keep that exact
+    format and use search_cfr to fill ONLY the gaps it marked "Not specified" — so the
+    two columns line up and agentic reads as a completion of single-shot, not a redo.
+
+    Fully guarded: any failure degrades to a note in this column so the compare view
+    (and the always-working single-shot column) never crashes the page.
+    """
+    steps = []
+
+    def step(msg):
+        steps.append(msg)
+        if on_step:
+            on_step(msg)  # live-render into the column while the loop runs
+
+    question = q if not draft else (
+        f"{q}\n\nA FIRST-PASS answer (from a single retrieval) is below. Cells marked "
+        '"Not specified in sources" (or left blank) are GAPS. Use search_cfr to find ONLY '
+        "those missing pieces, then reproduce the SAME table and format with the gaps filled "
+        "in — keep every row and column already there. Cite [n] from your NEW search results "
+        "only (ignore any bracket numbers in the draft).\n\n--- FIRST-PASS DRAFT ---\n" + draft)
+    try:
+        text, meta, registry = agentic_answer(question, index, embed_model, bm25, step)
+        meta["passages"] = len(registry)
+        citations = _cited(text, registry)
+        found = list(dict.fromkeys(c["section"] for c in citations if c.get("section")))
+        return {"text": text or "_(agentic returned no final answer)_", "meta": meta,
+                "citations": citations, "process": steps,
+                "graph": _pipeline_dot(found or ["—"], len(citations), meta["tokens_in"] // 4)}
+    except Exception as e:  # never let agentic break the side-by-side view
+        step(f"⚠️ agentic error: {type(e).__name__}: {e}")
+        return {"text": f"⚠️ Agentic mode hit an error: `{type(e).__name__}: {e}`",
+                "meta": None, "citations": [], "process": steps, "graph": None}
+
+
 st.set_page_config(page_title="FAA RAG Chat", page_icon="🛩️")
 
 # Theme polish (D6): serif headings for the sectional-chart warmth; mono footer chips.
@@ -383,7 +582,7 @@ st.markdown(
     """<style>
     /* Widen the centered column a bit — default ~730px felt too narrow on wide
        screens, but full-width would make legal-text lines too long to read. */
-    .block-container{max-width:920px !important}
+    .block-container{max-width:1200px !important}
     h1{font-family:Georgia,"Times New Roman",serif;font-weight:600;letter-spacing:.2px}
     .meta-row{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 2px;
       font-family:ui-monospace,Menlo,"SF Mono",monospace;font-size:12px}
@@ -399,13 +598,27 @@ st.markdown(
 st.title("🛩️ FAA RAG Chat")
 st.caption("Answers grounded in cited 14 CFR sources.")
 
-index, embed_model, bm25 = get_index()
-
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Sidebar: a table of contents of the questions asked; click one to jump to it.
+# Sidebar: pick the retrieval embedding model (live A/B), then the question ToC.
 with st.sidebar:
+    _models = available_models()
+    if not _models:
+        st.error("No index found. Build one first — `python indexer.py` (champion) or a "
+                 "per-model `index.<model>.pkl` — then reload.")
+        st.stop()
+    _default = "bge" if "bge" in _models else _models[0]
+    embed_model = st.selectbox(
+        "🔤 Embedding model", _models, index=_models.index(_default), key="embed_pick",
+        help="Which prebuilt index to query. Switch to compare retrieval quality "
+             "on the same question — the champion is bge.")
+    index, bm25 = get_index_for(embed_model)
+    st.caption(f"{len(index):,} chunks · {len(index[0]['embedding'])}-dim · "
+               f"{CHAMPION_METHOD} · K{CHAMPION_K}")
+    st.caption("Every question runs **both** ways side by side below — "
+               "🎯 single-shot vs 🤖 agentic.")
+    st.divider()
     st.markdown("### 💬 Questions")
     _qs = [mm["text"] for mm in st.session_state.messages if mm["role"] == "user"]
     if not _qs:
@@ -413,30 +626,6 @@ with st.sidebar:
     for _n, _qt in enumerate(_qs, 1):
         _short = _qt if len(_qt) <= 45 else _qt[:44] + "…"
         st.markdown(f"[**Q{_n}.** {_short}](#q{_n})")
-
-    st.markdown("### 🔬 Model comparison")
-    cmp_on = st.checkbox("Compare bge vs minilm retrieval")
-    cmp_q = (st.text_input(
-        "Question", value="recent flight experience day vs night to carry passengers")
-        if cmp_on else "")
-
-# Embedding-model comparison (demo): same question, different retrieval per model.
-# Shows WHY bge was chosen — minilm often misses the answer section. Retrieval only
-# (free); backend is harness/compare_models.py. Additive — independent of the chat.
-if cmp_on and cmp_q.strip():
-    from harness.compare_models import COMPARE_MODELS, compare_retrieval
-    with st.expander("🔬 Embedding model comparison — same question, different retrieval",
-                     expanded=True):
-        _res = compare_retrieval(cmp_q)
-        for _col, _model in zip(st.columns(len(COMPARE_MODELS)), COMPARE_MODELS):
-            with _col:
-                _tag = "🏆 champion" if _model == COMPARE_MODELS[0] else "baseline"
-                st.markdown(f"**{_model}** · {_tag}")
-                for _i, _h in enumerate(_res[_model], 1):
-                    st.markdown(f"{_i}. **{_h.get('section') or _h.get('source')}**")
-                    st.caption((_h.get("text", "")[:110]).strip() + "…")
-        st.caption("Same query, each model against its own index. Notice which model "
-                   "retrieves the section that actually answers the question.")
 
 # Replay the conversation so it survives Streamlit's rerun-on-every-interaction.
 qnum = 0
@@ -446,12 +635,14 @@ for m in st.session_state.messages:
         # Anchor the sidebar links scroll to.
         st.markdown(f"<div id='q{qnum}' class='qanchor'></div>", unsafe_allow_html=True)
     with st.chat_message(m["role"], avatar=AVATARS[m["role"]]):
-        if m["role"] == "assistant":
+        if m["role"] != "assistant":
+            st.markdown(m["text"])
+        elif m.get("compare"):
+            _render_compare(m["compare"], m.get("query"))
+        else:
             render_answer(m["text"], m.get("citations", []), m.get("query"))
             render_footer(m.get("meta"), m.get("citations", []), m["text"],
                           m.get("process"), graph=m.get("graph"), query=m.get("query"))
-        else:
-            st.markdown(m["text"])
 
 prompt = st.chat_input("Ask a question about 14 CFR…")
 
@@ -471,66 +662,54 @@ if prompt:
 
 if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
     q = st.session_state.messages[-1]["text"]
+    # 4c query contextualization (single-shot only): prepend the previous question ONLY
+    # for a BARE follow-up so it inherits the topic; a standalone Q searches on its own.
+    prev_q = [m["text"] for m in st.session_state.messages[:-1] if m["role"] == "user"]
+    search_query = f"{prev_q[-1]} {q}" if prev_q and _is_followup(q) else q
+    # Prior turns as plain Q/A for single-shot generation (use the agentic answer as the
+    # assistant side of past compare turns; agentic mode manages its own history).
+    history = []
+    for m in st.session_state.messages[:-1]:
+        if m["role"] == "user":
+            history.append({"role": "user", "content": m["text"]})
+        elif m.get("compare"):
+            history.append({"role": "assistant", "content": m["compare"]["agentic"]["text"]})
+        elif m.get("text"):
+            history.append({"role": "assistant", "content": m["text"]})
+
     with st.chat_message("assistant", avatar=AVATARS["assistant"]):
-        # 4c query contextualization: prepend the previous question ONLY when this turn
-        # is a bare follow-up ("what about at night?"), so it inherits the topic. A full
-        # standalone question searches on its own — prepending an unrelated prior
-        # question pollutes the embedding (a Class B/C prefix once buried a fuel-reserve
-        # question → false "out of scope"). Generation still gets q (model has history).
-        prev_q = [m["text"] for m in st.session_state.messages[:-1] if m["role"] == "user"]
-        search_query = f"{prev_q[-1]} {q}" if prev_q and _is_followup(q) else q
+        col_ss, col_ag = st.columns(2)
+        with col_ss:
+            st.markdown("#### 🎯 single-shot")
+            with st.spinner("Retrieving + answering…"):
+                res_ss = run_single_shot(q, search_query, history)
+            _render_result(res_ss, search_query)
+        with col_ag:
+            st.markdown("#### 🤖 agentic — fills the gaps")
+            with st.status("Running the agentic search loop…", expanded=True) as status:
+                st.markdown("**How the agent works** — the model drives its own search:")
+                st.markdown(
+                    "1. **The model decides** what to look up — we don't pick the query.\n"
+                    "2. It calls `search_cfr(query)`, reads the passages, and judges if they're enough.\n"
+                    "3. If a part is still missing (e.g. Part 91 rules behind a Part 71 stub), "
+                    "it **searches again** with a refined query.\n"
+                    "4. It repeats until it has every part — **capped at 3 searches** to control cost.\n"
+                    "5. Then it writes one grounded, cited answer.")
+                st.markdown("**Live trace**")
+                _live = st.empty()
+                _seen: list[str] = []
 
-        # Live process panel — the REAL single-RAG pipeline with real numbers (not a
-        # fake "thinking" animation). Each step's text is also saved to `steps` so the
-        # same trace persists in a collapsed expander under the answer: shown live AND
-        # re-viewable later (the professor asked to see HOW it retrieves).
-        steps = []
+                def _on_step(msg: str) -> None:
+                    _seen.append(msg)
+                    _live.markdown("\n\n".join(f"`▶` {s}" for s in _seen))
 
-        def step(msg):
-            steps.append(msg)
-            st.write(msg)
-
-        with st.status("Retrieving…", expanded=True) as status:
-            if prev_q:
-                step(f"💬 Read in the conversation's context → searching for: *{search_query}*")
-            else:
-                step(f"💬 Question: *{q}*")
-            step(f"🔎 Embedding with **{embed_model}** ({len(index[0]['embedding'])}-dim) and "
-                 f"comparing against **{len(index):,}** indexed 14 CFR chunks by similarity…")
-            hits = retrieve(search_query, index, method=CHAMPION_METHOD, k=CHAMPION_K,
-                            embed_model=embed_model, bm25=bm25)
-            raw_chars = sum(len(h.get("text", "")) for h in hits)
-            found = list(dict.fromkeys(h.get("section") or h.get("source") for h in hits))
-            step(f"📑 Top {len(hits)} matching sections: {' · '.join(found)}")
-            step("✂️ Splitting the long sections into passages and keeping only the ones "
-                 "relevant to your question (this is what caps the tokens)…")
-            hits = select_context(search_query, hits, embed_model)
-            sel_chars = sum(len(h.get("text", "")) for h in hits)
-            trim = 100 * (1 - sel_chars / raw_chars) if raw_chars else 0
-            step(f"📉 Context trimmed **{raw_chars:,} → {sel_chars:,} chars** "
-                 f"(~{trim:.0f}% smaller, ≈{sel_chars // 4:,} tokens) across **{len(hits)}** passages")
-            step("✍️ Writing an answer grounded **only** in these passages, with citations…")
-            status.update(label="Retrieval process", state="complete", expanded=True)
-
-        # Native Graphviz flow of this turn's pipeline (no mermaid/CDN dependency).
-        graph = _pipeline_dot(found, len(hits), sel_chars // 4)
-
-        # 4c multi-turn: prior turns as plain Q/A (no old CONTEXT blocks — E2).
-        history = [{"role": m["role"], "content": m["text"]}
-                   for m in st.session_state.messages[:-1]]
-
-        # 4a streaming: type raw tokens into a placeholder, swap in the formatted
-        # answer (§ tint + [n] labels) once complete.
-        placeholder = st.empty()
-        reply, meta = stream_answer(q, hits, placeholder, history)
-        citations = _cited(reply, hits)
-        # Swap the raw stream for the segmented answer: each source card renders inline
-        # right under the paragraph that cites it (render_answer).
-        with placeholder.container():
-            render_answer(reply, citations, search_query)
-        render_footer(meta, citations, reply, graph=graph, query=search_query)
-        log_attempt(q, meta, found)
+                res_ag = run_agentic(q, res_ss["text"], on_step=_on_step)
+                _n = (res_ag.get("meta") or {}).get("searches", "?")
+                status.update(label=f"Agentic loop done — {_n} searches",
+                              state="complete", expanded=False)
+            _render_result(res_ag, search_query)
 
     st.session_state.messages.append(
-        {"role": "assistant", "text": reply, "meta": meta, "citations": citations,
-         "process": steps, "graph": graph, "query": search_query})
+        {"role": "assistant", "compare": {"single-shot": res_ss, "agentic": res_ag},
+         "query": search_query})
+    log_attempt(q, res_ss["meta"], [])
