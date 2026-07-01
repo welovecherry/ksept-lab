@@ -121,26 +121,7 @@
         &nbsp;·&nbsp; welovecherry / ksept-lab</p>
     </section>
 
-    <!-- ================= SLIDE 2 — WHAT IS RAG ================= -->
-    <section class="slide">
-      <div class="kicker">The idea</div>
-      <h2>What is RAG? An open-book exam.</h2>
-      <p class="lead">The model did <b>not</b> memorize the law. It answers from pages we hand it.</p>
-      <div class="analogy">
-        <b>Open-book exam:</b> the student (the model) knows nothing about aviation law.
-        A <b>librarian</b> reads the question, pulls the <b>5 most relevant pages</b>,
-        and puts them on the desk. The student writes the answer <b>using only those pages</b> —
-        and cites them. No outside guessing. This stops hallucination.
-      </div>
-      <div class="term"><b>RAG</b> = <b>R</b>etrieval <b>A</b>ugmented <b>G</b>eneration.
-        First <i>retrieve</i> the right law text, then <i>generate</i> an answer grounded in it.</div>
-      <div class="term"><b>Chunk</b> = one small piece of the law, cut so it is easy to search.
-        Our whole library is <b>2,184</b> chunks.</div>
-      <p class="muted">Why it fits this contest: answers must be <b>cited</b> and <b>verifiable</b> —
-        exactly what "answer only from the given pages" gives us.</p>
-    </section>
-
-    <!-- ================= SLIDE 3 — STATIC RAG FLOW (KEY) ================= -->
+    <!-- ================= SLIDE 2 — STATIC RAG FLOW (KEY) ================= -->
     <section class="slide">
       <div class="kicker">The design I shipped</div>
       <h2>Static RAG — one search, one answer</h2>
@@ -168,7 +149,7 @@
       </ul>
     </section>
 
-    <!-- ================= SLIDE 4 — INSIDE RETRIEVAL ================= -->
+    <!-- ================= SLIDE 3 — INSIDE RETRIEVAL ================= -->
     <section class="slide">
       <div class="kicker">Under the hood</div>
       <h2>Inside one retrieval (real log)</h2>
@@ -196,7 +177,7 @@
         (Class B / C left blank). A single search can't go back for more.</div>
     </section>
 
-    <!-- ================= SLIDE 5 — RETRIEVAL EXPERIMENTS (NOT AGENTIC) ================= -->
+    <!-- ================= SLIDE 4 — RETRIEVAL EXPERIMENTS (NOT AGENTIC) ================= -->
     <section class="slide">
       <div class="kicker">The experiments · offline</div>
       <h2>First I tuned <span class="accent">search</span> — not the agent</h2>
@@ -225,7 +206,51 @@
       </ul>
     </section>
 
-    <!-- ================= SLIDE 6 — MY HARD DECISIONS (고민) ================= -->
+        <!-- ================= SLIDE 5 — RETRIEVAL GRID (data table) ================= -->
+    <section class="slide">
+      <div class="kicker">The experiments · data</div>
+      <h2>The retrieval grid — 45 configs, measured</h2>
+      <p class="lead">I scored every combination on 11 questions.
+        <b>Coverage</b> = the right law section was found. <b>MRR</b> = how high it ranked.
+        <b>Cost</b> = input tokens.</p>
+
+      <table>
+        <tr><th>Config</th><th>Cov</th><th>MRR</th><th>Cost (tok)</th></tr>
+        <tr><td>section · bge · hybrid · K8 <span class="muted">— top coverage</span></td><td class="num">0.864</td><td class="num">0.636</td><td class="num">17,284</td></tr>
+        <tr style="background:#11271a"><td>⭐ section · bge · vector · K5 <span class="green">— my pick</span></td><td class="num">0.818</td><td class="num green">0.718</td><td class="num green">10,802</td></tr>
+        <tr><td>section · gte · vector · K8</td><td class="num">0.773</td><td class="num">0.625</td><td class="num">17,284</td></tr>
+        <tr><td>section · bge · <b>bm25</b> · K8 <span class="muted">— keyword only</span></td><td class="num">0.636</td><td class="num">0.412</td><td class="num">17,284</td></tr>
+        <tr><td><b>char</b> · minilm · bm25 · K8 <span class="muted">— character chunks</span></td><td class="num red">0.409</td><td class="num">0.331</td><td class="num">7,836</td></tr>
+      </table>
+
+      <div class="ok"><b>My pick — bge · vector · K5:</b> only <b>0.045</b> behind the best coverage,
+        but <b>~38% cheaper</b> and it ranks the answer <b>earlier</b> (highest MRR, 0.718).</div>
+      <p class="muted">Honesty note: char × bge / e5 / gte were <b>killed overnight</b> (out of memory).
+        Never scored, never faked — left blank on purpose.</p>
+    </section>
+
+    <!-- ================= SLIDE 6 — PROMPT BAKE-OFF (data table) ================= -->
+    <section class="slide">
+      <div class="kicker">The experiments · data</div>
+      <h2>The prompt bake-off — which style wins</h2>
+      <p class="lead">Same retrieval, <b>three answer styles</b>, scored by an LLM judge on 5 questions.</p>
+
+      <table>
+        <tr><th>Prompt style</th><th>Overall</th><th>Complete</th><th>Grounded</th><th>Cite OK</th><th>Out tok</th></tr>
+        <tr style="background:#11271a"><td>⭐ <b>B — balanced</b></td><td class="num green">4.93</td><td class="num">5.00</td><td class="num">5.00</td><td class="num">100%</td><td class="num">391</td></tr>
+        <tr><td>A — current (terse)</td><td class="num">4.60</td><td class="num">4.40</td><td class="num">5.00</td><td class="num">100%</td><td class="num">313</td></tr>
+        <tr><td>C — warm (wordy)</td><td class="num">4.20</td><td class="num">3.80</td><td class="num">5.00</td><td class="num">100%</td><td class="num red">577</td></tr>
+      </table>
+
+      <div class="ok"><b>Balanced won (4.93).</b> All three were fully <b>grounded (5.00)</b> and cited
+        correctly (100%) — so grounding was not the difference.</div>
+      <ul style="margin:.4rem 0">
+        <li><b>Completeness decided it:</b> balanced covered every case; the terse one missed some.</li>
+        <li><b>Wordy ≠ better:</b> the "warm" style wrote the most (577 tokens) but scored the lowest.</li>
+      </ul>
+    </section>
+
+<!-- ================= SLIDE 7 — MY HARD DECISIONS (고민) ================= -->
     <section class="slide">
       <div class="kicker">The deliberations</div>
       <h2>Three hard calls I had to make</h2>
@@ -257,7 +282,7 @@
         weighing <b>quality ↔ cost</b>.</div>
     </section>
 
-    <!-- ================= SLIDE 7 — AGENTIC EXPERIMENT ================= -->
+    <!-- ================= SLIDE 8 — AGENTIC EXPERIMENT ================= -->
     <section class="slide">
       <div class="kicker">The experiment · online</div>
       <h2>Then I tried an agentic loop — great answers, huge cost</h2>
@@ -288,7 +313,7 @@
         That is roughly <b>N² (quadratic)</b> — a few searches are fine, 13 is a bomb.</div>
     </section>
 
-    <!-- ================= SLIDE 8 — THE DECISION ================= -->
+    <!-- ================= SLIDE 9 — THE DECISION ================= -->
     <section class="slide">
       <div class="kicker">The decision</div>
       <h2>I rolled back to static RAG</h2>
@@ -313,7 +338,7 @@
         <b>results only</b> (quality, citations, cost). Static RAG is fully compliant — and safest on cost.</div>
     </section>
 
-    <!-- ================= SLIDE 9 — FINAL SETUP ================= -->
+    <!-- ================= SLIDE 10 — FINAL SETUP ================= -->
     <section class="slide">
       <div class="kicker">Summary</div>
       <h2>Final setup &amp; the decisions behind it</h2>
@@ -350,7 +375,7 @@
   <div id="hint">← → or Space to move · F for fullscreen</div>
   <div id="nav">
     <button id="prev" aria-label="previous">‹</button>
-    <span id="count">1 / 9</span>
+    <span id="count">1 / 10</span>
     <button id="next" aria-label="next">›</button>
   </div>
 
