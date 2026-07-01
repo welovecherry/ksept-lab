@@ -226,6 +226,9 @@ st.set_page_config(page_title="FAA RAG Chat", page_icon="🛩️")
 # Theme polish (D6): serif headings for the sectional-chart warmth; mono footer chips.
 st.markdown(
     """<style>
+    /* Widen the centered column a bit — default ~730px felt too narrow on wide
+       screens, but full-width would make legal-text lines too long to read. */
+    .block-container{max-width:920px !important}
     h1{font-family:Georgia,"Times New Roman",serif;font-weight:600;letter-spacing:.2px}
     .meta-row{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 2px;
       font-family:ui-monospace,Menlo,"SF Mono",monospace;font-size:12px}
