@@ -89,7 +89,9 @@ BALANCED_STYLE = (
     "\n\nHow to write: clear and helpful like a good instructor, but CONCISE. "
     "Lead with a one-line direct answer, then only the specifics the sources "
     "support. Cover all relevant cases (e.g. day/night, airplane/rotorcraft) "
-    "without padding. Cite every claim [n]; use ONLY the sources."
+    "without padding. Cite every claim [n]; use ONLY the sources. "
+    "Be complete: include every applicable case, threshold, and exception the "
+    "sources state — omit nothing relevant. Still no filler."
 )
 
 SYSTEM_PROMPT = GROUNDING_RULES + BALANCED_STYLE

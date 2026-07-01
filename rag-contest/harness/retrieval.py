@@ -65,7 +65,10 @@ def format_context(hits: list[dict]) -> str:
 _META_KEYS = ("section", "part", "source", "chunk_index")
 
 DEFAULT_WINDOW_CHARS = 500     # sub-chunk size (tuned in step 2)
-DEFAULT_CONTEXT_BUDGET = 6500  # total chars kept for CONTEXT (~1,600 input tokens)
+# Total chars kept for CONTEXT. 5000 (~1,250 input tok) measured better than 6500:
+# tighter context → more relevant windows → the model writes MORE complete answers
+# on detail/multi-part questions while total tokens drop (input↓, substance output↑).
+DEFAULT_CONTEXT_BUDGET = 5000
 
 
 def _windows(text: str, size: int) -> list[str]:
