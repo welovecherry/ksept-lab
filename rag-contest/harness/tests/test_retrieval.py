@@ -13,7 +13,8 @@ import pytest
 # rag-starter/ on path for the indexer helpers under test.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "rag-starter"))
 
-from harness.retrieval import _minmax, retrieve  # noqa: E402
+import harness.retrieval as R  # noqa: E402
+from harness.retrieval import _minmax, _windows, format_context, retrieve, select_context  # noqa: E402
 from indexer import _apply_prefix, _chunk  # noqa: E402
 
 
@@ -71,3 +72,40 @@ def test_bm25_ties_do_not_crash():
 def test_unknown_method_raises():
     with pytest.raises(ValueError):
         retrieve("q", [{"text": "a"}], method="nope")
+
+
+def test_format_context_numbers_chunks():
+    assert format_context([{"text": "A"}, {"text": "B"}]) == "[1] A\n\n[2] B"
+
+
+def test_windows_splits_big_paragraph():
+    text = "x" * 1200
+    w = _windows(text, 500)
+    assert len(w) == 3 and all(len(p) <= 500 for p in w)
+
+
+def test_windows_keeps_small_text_whole():
+    assert _windows("short para", 500) == ["short para"]
+
+
+def _fake_embed(texts, model, is_query=False):
+    # 2-D one-hot: "fuel" windows point one way, everything else the other, so
+    # cosine_distance separates them deterministically without loading a model.
+    return [[1.0, 0.0] if "fuel" in t else [0.0, 1.0] for t in texts]
+
+
+def test_select_context_prefers_query_relevant_window(monkeypatch):
+    monkeypatch.setattr(R, "embed", _fake_embed)
+    hits = [{"section": "§91.151", "part": "part91", "source": "f.md",
+             "chunk_index": 0,
+             "text": "intro para\n\nfuel reserve rule here\n\ntail para"}]
+    kept = select_context("fuel reserve", hits, "bge", window_chars=30, char_budget=40)
+    assert kept[0]["text"].strip().startswith("fuel")   # relevant window ranked first
+    assert kept[0]["section"] == "§91.151"              # parent metadata preserved
+
+
+def test_select_context_respects_budget(monkeypatch):
+    monkeypatch.setattr(R, "embed", _fake_embed)
+    hits = [{"section": "§1.1", "text": "\n\n".join(["para " + str(i) for i in range(20)])}]
+    kept = select_context("para", hits, "bge", window_chars=20, char_budget=50)
+    assert sum(len(w["text"]) for w in kept[1:]) <= 50  # only first may exceed budget

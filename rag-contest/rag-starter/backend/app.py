@@ -30,7 +30,7 @@ from indexer import (
     load_index_embed_model,
 )
 
-from harness.retrieval import build_bm25, format_context, retrieve
+from harness.retrieval import build_bm25, format_context, retrieve, select_context
 
 load_dotenv()  # ANTHROPIC_API_KEY from .env
 
@@ -104,6 +104,10 @@ def chat():
     # its answer and cite sources.
     hits = retrieve(user_message, INDEX, method=CHAMPION_METHOD, k=CHAMPION_K,
                     embed_model=EMBED, bm25=BM25)
+    # Rerank sub-chunks by query similarity and keep within the token budget, so a
+    # huge §-section (e.g. §61.109) contributes only its relevant windows, not all
+    # ~20k chars. Citations still resolve — windows carry their parent § metadata.
+    hits = select_context(user_message, hits, EMBED)
     user_content = f"CONTEXT:\n{format_context(hits)}\n\nQUESTION:\n{user_message}"
 
     resp = client.messages.create(
