@@ -845,6 +845,17 @@ export TRANSFORMERS_OFFLINE=1</code></pre>
         <pre style="margin:.5rem 0"><code>정답 §91.151 이 top-5 [§91.151, §91.167, §91.103, …] 안에 있나?
   → 있음 → 1점   (없으면 0점) → 질문 12개 평균 = 검색 점수</code></pre>
         "리스트에 들어있나?"는 코드가 0.001초에 확인(집합 포함 검사) — <b>Claude의 언어 이해가 전혀 필요 없다.</b> 그래서 무료·즉시. (이 대조가 되려면 Phase 1의 <b>§태그가 정확</b>해야 함.)</div>
+
+      <p class="analogy">🛒 <b>비유(장보기 심부름):</b> 정답지에 <b>살 것 목록</b>(정답 §들)이 있고, 로봇이 마트에서 <b>K개를 담아온다</b>(검색 top-K). 이걸 <b>세 가지 자</b>로 잰다.</p>
+      <p><b>예 — H10</b> (정답 §<b>2개</b>: §61.57 경험 + §61.23 의료), K=5로 담아온 게 <code>[§61.57, §91.103, §61.23, §71.1, §67.1]</code>라면:</p>
+      <table class="cmp">
+        <tr><th>지표</th><th>재는 질문</th><th>H10 결과</th><th>뜻</th></tr>
+        <tr><td><b>Recall</b></td><td>목록에서 <i>하나라도</i> 담았나?</td><td>1 (§61.57 있음)</td><td>거칠다 — 절반만 맞아도 만점</td></tr>
+        <tr><td><b>coverage</b></td><td>목록 중 <i>몇 개</i> 담았나?</td><td>2/2 = <b>1.0</b></td><td>정직 — 교차질문의 진짜 실력</td></tr>
+        <tr><td><b>MRR</b></td><td><i>첫 정답</i>이 몇 등?</td><td>§61.57이 1등 → <b>1.0</b></td><td>앞에 올수록 높음 = 토큰↓·품질↑</td></tr>
+      </table>
+      <p class="note"><b>왜 셋 다?</b> Recall만 보면 H10에서 정답 하나만 담아도 "만점"이라 거짓 신호. <b>coverage</b>가 "2개 중 몇 개?"를 정직하게, <b>MRR</b>이 "1등이냐 8등이냐"를 봐 토큰·품질까지 챙긴다. → MRR이 높으면 <b>K를 줄여도 돼</b> 입력 토큰↓(⑦ 비용의 적정 K와 연결).</p>
+
       <div class="term"><b>LLM 심판</b> = Claude가 사실성·인용·완전성 1~5점(생성≠심판 모델로 분리).</div>
       <div class="term"><b>프로그램 인용검증</b> = 인용한 §가 실제 그 청크에 있나 코드 대조(무료·객관, 가짜 인용 색출).</div>
       <div class="warn"><b>원칙 — 기록은 버리지 않는다.</b> recall=0·추출 실패·깨진 표도 <code>status:"failed"</code>로 <code>runs.jsonl</code>에 한 줄 남긴다. <b>왜 안 됐는지가 대시보드의 핵심 신호</b>다.</div>
@@ -852,7 +863,7 @@ export TRANSFORMERS_OFFLINE=1</code></pre>
  "retrieval":"hybrid","topk":5,"gen_model":"sonnet-4-6","prompt":"A"},
  "question_id":"H07","citations":["§91.151"],"program_check":{"citation_grounded":true},
  "status":"ok"}</code></pre>
-      <div class="warn"><b>차단 작업(blocker):</b> 무료 채점은 전부 <b>정답 § 라벨의 정확성</b>에 의존한다. 라벨이 틀리면 Recall이 거짓말을 한다 → Phase 1 직후 <code>grep</code>으로 전수 검증하기 전엔 점수를 신뢰하지 않는다.</div>
+      <div class="ok"><b>차단 작업 — 해소됨:</b> 무료 채점은 전부 <b>정답 § 라벨의 정확성</b>에 의존한다. 그 라벨을 FAA 인덱스에 대조해 <b>확정 완료</b>(93ca724, ⑤ 참고) → 이제 Recall@K를 신뢰할 수 있다.</div>
 
       <h3>⑦ 비용 — 두 지갑 분리</h3>
       <ul>
