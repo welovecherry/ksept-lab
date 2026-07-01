@@ -116,7 +116,8 @@ def _cited(answer_text: str, hits: list[dict]) -> list[dict]:
             continue
         seen.add(n)
         h = hits[n - 1]
-        out.append({"n": n, "label": _citation_label(h), "text": h.get("text", "")})
+        out.append({"n": n, "label": _citation_label(h), "section": h.get("section"),
+                    "text": h.get("text", "")})
     return out
 
 
@@ -128,6 +129,32 @@ def _looks_like_refusal(text: str) -> bool:
     """
     low = text.lower()
     return "don't contain" in low or "do not contain" in low or "provided sources" in low
+
+
+_SECTION_RE = re.compile(r"§\s?\d+\.\d+(?:\([a-z0-9]+\))*")
+
+
+def _colorize(text: str) -> str:
+    """Tint § regulation references with Streamlit's SAFE :orange markdown colorizer.
+
+    Never unsafe_allow_html: the answer is model output, so injecting raw HTML into it
+    would be a prompt-injection hole (Robustness). :orange is sanitized by Streamlit
+    and reads as a warm terracotta-ish tone against the cream theme.
+    """
+    return _SECTION_RE.sub(lambda m: f":orange[{m.group(0)}]", text)
+
+
+def _format_answer(text: str, citations: list[dict]) -> str:
+    """Expand bare [n] markers to [n §xxx] (so the cited clause is visible inline
+    without scrolling to the cards), then tint the § references. Markers whose hit
+    has no section (non-FAA chunk) stay bare. Both passes are safe markdown, no HTML.
+    """
+    section = {c["n"]: c["section"] for c in citations if c.get("section")}
+    text = re.sub(r"\[(\d+)\]",
+                  lambda m: f"[{m.group(1)}] {section[int(m.group(1))]}"
+                  if int(m.group(1)) in section else m.group(0),
+                  text)
+    return _colorize(text)
 
 
 def answer(question, index, embed_model, bm25):
@@ -168,7 +195,7 @@ def render_footer(meta: dict | None, citations: list[dict], text: str) -> None:
     """Draw the quiet cost/model/retrieval chips + source cards under an answer.
 
     Shared by the live turn and the replay loop so history renders identically.
-    No grounding badge (E2). Citation coloring (terracotta) lands in stage 3.
+    No grounding badge (E2). § references are tinted by _colorize at render time.
     """
     if meta:
         # Uniform teal-soft pills. Headline = total tokens + cost; the in/out split
@@ -195,17 +222,20 @@ def render_footer(meta: dict | None, citations: list[dict], text: str) -> None:
 
 
 st.set_page_config(page_title="FAA RAG Chat", page_icon="🛩️")
-st.title("🛩️ FAA RAG Chat")
 
-# Footer meta chips (injected once). teal-soft pills, cost = filled teal so it pops.
+# Theme polish (D6): serif headings for the sectional-chart warmth; mono footer chips.
 st.markdown(
     """<style>
+    h1{font-family:Georgia,"Times New Roman",serif;font-weight:600;letter-spacing:.2px}
     .meta-row{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 2px;
       font-family:ui-monospace,Menlo,"SF Mono",monospace;font-size:12px}
     .meta-row .chip{background:#e4efe9;color:#3f4a45;padding:3px 11px;border-radius:13px}
     </style>""",
     unsafe_allow_html=True,
 )
+
+st.title("🛩️ FAA RAG Chat")
+st.caption("Answers grounded in cited 14 CFR sources.")
 
 index, embed_model, bm25 = get_index()
 
@@ -215,7 +245,8 @@ if "messages" not in st.session_state:
 # Replay the conversation so it survives Streamlit's rerun-on-every-interaction.
 for m in st.session_state.messages:
     with st.chat_message(m["role"], avatar=AVATARS[m["role"]]):
-        st.markdown(m["text"])
+        st.markdown(_format_answer(m["text"], m.get("citations", []))
+                    if m["role"] == "assistant" else m["text"])
         if m["role"] == "assistant":
             render_footer(m.get("meta"), m.get("citations", []), m["text"])
 
@@ -223,7 +254,7 @@ prompt = st.chat_input("Ask a question about 14 CFR…")
 
 # Empty-state examples (D5): one click beats typing. Gone once a chat starts.
 if not st.session_state.messages:
-    st.caption("Try an example — or type your own below:")
+    st.caption("👋 New here? Try an example below — or ask your own question about 14 CFR.")
     for _q in EXAMPLES:
         if st.button(_q, use_container_width=True):
             prompt = _q
@@ -236,7 +267,7 @@ if prompt:
     with st.chat_message("assistant", avatar=AVATARS["assistant"]):
         with st.spinner("Searching + answering…"):
             reply, meta, citations = answer(prompt, index, embed_model, bm25)
-        st.markdown(reply)
+        st.markdown(_format_answer(reply, citations))
         render_footer(meta, citations, reply)
 
     st.session_state.messages.append(
