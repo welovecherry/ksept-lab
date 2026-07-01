@@ -110,8 +110,8 @@
     <section class="slide active">
       <div class="kicker">FAA RAG Contest · Build Log</div>
       <h1>Building a RAG Chatbot<br>for <span class="accent">FAA Flight Rules</span></h1>
-      <p class="lead">How the answer pipeline works, the one experiment I tried,
-        and why I shipped the simple design.</p>
+      <p class="lead">I built <b>both</b> a static RAG and an agentic loop, measured them
+        head to head, and the app runs them side by side — with a model picker too.</p>
       <div class="stat">
         <div class="box"><div class="n accent">2,184</div><div class="l">indexed law chunks (14 CFR)</div></div>
         <div class="box"><div class="n accent">bge · 1024d</div><div class="l">embedding model</div></div>
@@ -317,28 +317,28 @@
 
     <!-- ================= SLIDE 9 — THE DECISION ================= -->
     <section class="slide">
-      <div class="kicker">The decision</div>
-      <h2>I rolled back to static RAG — for this contest</h2>
-      <p class="lead">Not a verdict against agentic. For open-ended, cross-section questions it
-        genuinely answers better — but this contest is specific questions on a tight cost budget.</p>
+      <div class="kicker">The final product</div>
+      <h2>Run both, side by side</h2>
+      <p class="lead">I kept both engines instead of throwing one away. The app runs them in two
+        columns — and lets you switch the embedding model too.</p>
 
-      <table>
-        <tr><th>Question type</th><th>Static RAG</th><th>Agentic</th><th>Quality</th></tr>
-        <tr><td>Specific (contest style)</td><td class="num green">2,281</td><td class="num">4,282 · 1 search</td><td>both correct</td></tr>
-        <tr><td>Broad ("all classes")</td><td class="num">2,949 · <span class="amber">gaps</span></td><td class="num red">81,320 · 13 searches</td><td>agentic wins</td></tr>
-      </table>
+      <div class="cols">
+        <div class="card good">
+          <h3>🟢 Single RAG — left</h3>
+          <p>One search, one answer. Cheap and predictable (~2.3k tokens), fully cited.
+          The <b>default</b> — best for specific questions.</p>
+        </div>
+        <div class="card">
+          <h3 class="accent">🤖 Agentic — right</h3>
+          <p>Searches until it has enough, <b>capped at 3</b>. Pulls evidence <b>across many
+          sections</b> and self-corrects — best for broad, cross-Part questions.</p>
+        </div>
+      </div>
 
-      <ul>
-        <li><b>The rubric rewards cost.</b> Cost Management is 15 points and literally says
-          <i>"as few tokens as possible"</i>. 81k works against that.</li>
-        <li><b>Contest questions are specific.</b> 4 of 5 practice questions live in a single Part —
-          static answers them perfectly and cheaply.</li>
-        <li><b>Agentic is kept, but capped.</b> A hard limit of <code>MAX_SEARCHES = 3</code> keeps even
-          a broad question near ~15k. It waits on the bench as a ready backup.</li>
-      </ul>
-
-      <div class="ok"><b>Rule check:</b> the contest never requires an agentic loop. It scores
-        <b>results only</b> (quality, citations, cost). Static RAG is fully compliant — and safest on cost.</div>
+      <div class="ok"><b>Plus: pick the model.</b> Switch the embedding (bge ⇄ minilm) to compare
+        retrieval live. So my entry shows <b>both engines and both models</b> — not one fixed pipeline.
+        <span class="muted">Static stays the default for the tight cost budget; agentic is one click away
+        for cross-section questions.</span></div>
     </section>
 
     <!-- ================= SLIDE 10 — FINAL SETUP ================= -->
@@ -352,7 +352,7 @@
           <ul style="margin:0">
             <li><b>Embedding:</b> bge (1024d) — best recall, wins with a small K</li>
             <li><b>Retrieval:</b> § boundary chunking + hybrid/vector, <b>K=5</b></li>
-            <li><b>Generate:</b> single-shot, one API call</li>
+            <li><b>Two engines:</b> single-shot RAG (default) + agentic (capped 3), side by side</li>
             <li><b>Citations:</b> real § numbers, e.g. <code>§91.151 (Part 91)</code></li>
           </ul>
         </div>
@@ -360,8 +360,8 @@
           <h3 class="accent">Key decisions</h3>
           <ul style="margin:0">
             <li><b>K 8→5:</b> half the tokens, tiny recall loss</li>
-            <li><b>Static over agentic:</b> flat cost beats 27× spikes</li>
-            <li><b>Cap the agent:</b> 3 searches max, kept as backup</li>
+            <li><b>Ship both:</b> static default for cost, agentic for cross-section</li>
+            <li><b>Model picker:</b> switch bge ⇄ minilm to compare live</li>
             <li><b>Log every attempt:</b> tokens/cost to <code>chat_attempts.jsonl</code></li>
           </ul>
         </div>
