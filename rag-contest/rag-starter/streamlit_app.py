@@ -157,38 +157,36 @@ def _format_answer(text: str, citations: list[dict]) -> str:
     return _colorize(text)
 
 
-def answer(question, index, embed_model, bm25):
-    """Retrieve champion top-K chunks, build the context block, generate an answer.
+def stream_answer(question, hits, placeholder):
+    """Stream the answer into `placeholder` token-by-token; return (text, meta).
 
-    Mirrors app.py's /api/chat (same retrieve() call) so both frontends behave
-    identically. Returns (answer_text, meta, citations): meta carries the model,
-    token usage, cost, and retrieval config for the footer badge; citations are
-    the [n] the answer actually used, mapped to their source passage.
+    Raw tokens render live with a cursor for perceived speed; the caller swaps in
+    the formatted answer (§ tint + [n] labels) once the text is complete. Usage/cost
+    come from the final message — the "meta arrives at the end" contract (①) that
+    stages 1-2 were built around, which is why streaming drops in without reshaping
+    the message. `format_context` is the shared numbering helper app.py uses too.
     """
-    hits = retrieve(question, index, method=CHAMPION_METHOD, k=CHAMPION_K,
-                    embed_model=embed_model, bm25=bm25)
-    # format_context is the shared numbering helper app.py/gen_answers use too, so
-    # citation numbers can't drift between the live app and the experiment harness.
     user_content = f"CONTEXT:\n{format_context(hits)}\n\nQUESTION:\n{question}"
-
-    resp = get_client().messages.create(
+    full = ""
+    with get_client().messages.stream(
         model=MODEL,
         max_tokens=MAX_TOKENS,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_content}],
-    )
-    answer_text = resp.content[0].text
-    # [① contract] meta travels as its own field so stage-4 streaming (where usage
-    # arrives at stream end) can fill it in without reshaping the message.
+    ) as stream:
+        for chunk in stream.text_stream:
+            full += chunk
+            placeholder.markdown(full + " ▌")
+        final = stream.get_final_message()
     meta = {
-        "model": resp.model,
-        "tokens_in": resp.usage.input_tokens,
-        "tokens_out": resp.usage.output_tokens,
-        "cost_usd": _cost_usd(resp.model, resp.usage.input_tokens, resp.usage.output_tokens),
+        "model": final.model,
+        "tokens_in": final.usage.input_tokens,
+        "tokens_out": final.usage.output_tokens,
+        "cost_usd": _cost_usd(final.model, final.usage.input_tokens, final.usage.output_tokens),
         "method": CHAMPION_METHOD,
         "k": CHAMPION_K,
     }
-    return answer_text, meta, _cited(answer_text, hits)
+    return full, meta
 
 
 def render_footer(meta: dict | None, citations: list[dict], text: str) -> None:
@@ -268,9 +266,18 @@ if prompt:
         st.markdown(prompt)
 
     with st.chat_message("assistant", avatar=AVATARS["assistant"]):
-        with st.spinner("Searching + answering…"):
-            reply, meta, citations = answer(prompt, index, embed_model, bm25)
-        st.markdown(_format_answer(reply, citations))
+        # 4b retrieval-first: show what we found before the answer starts generating.
+        hits = retrieve(prompt, index, method=CHAMPION_METHOD, k=CHAMPION_K,
+                        embed_model=embed_model, bm25=bm25)
+        found = list(dict.fromkeys(h.get("section") or h.get("source") for h in hits))[:3]
+        st.caption(f"🔍 Found {' · '.join(found)} · {CHAMPION_METHOD}·K{CHAMPION_K}")
+
+        # 4a streaming: type the raw answer into a placeholder, then swap in the
+        # formatted version (§ tint + [n] labels) once we have the full text.
+        placeholder = st.empty()
+        reply, meta = stream_answer(prompt, hits, placeholder)
+        citations = _cited(reply, hits)
+        placeholder.markdown(_format_answer(reply, citations))
         render_footer(meta, citations, reply)
 
     st.session_state.messages.append(
