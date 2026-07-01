@@ -45,6 +45,15 @@ def build_bm25(records: list[dict]) -> BM25Okapi:
     return BM25Okapi([_tokenize(r["text"]) for r in records])
 
 
+def format_context(hits: list[dict]) -> str:
+    """Number retrieved chunks for the prompt's CONTEXT block: '[1] ...\\n\\n[2] ...'.
+
+    One definition for app.py, gen_answers.py, and try_prompt.py so the citation
+    numbering can't drift between the live app and the experiment harness.
+    """
+    return "\n\n".join(f"[{i + 1}] {h['text']}" for i, h in enumerate(hits))
+
+
 def _bm25_scores(query: str, records: list[dict], bm25: BM25Okapi | None = None) -> list[float]:
     bm25 = bm25 or build_bm25(records)
     return list(bm25.get_scores(_tokenize(query)))

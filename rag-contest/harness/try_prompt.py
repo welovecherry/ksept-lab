@@ -20,20 +20,15 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "rag-starter"))
 sys.path.insert(0, str(ROOT / "rag-starter" / "backend"))
 import app  # noqa: E402  — SYSTEM_PROMPT, client, INDEX
-from harness.retrieval import retrieve  # noqa: E402
+from harness.retrieval import format_context, retrieve  # noqa: E402
 
 IN_PRICE, OUT_PRICE = 3 / 1e6, 15 / 1e6  # sonnet, USD per token
 
-# Each variant is an ADDITION appended to app.SYSTEM_PROMPT. "" = current baseline.
-# All keep the grounding rules; they differ only in tone/length. Add your own.
+# Each variant is an ADDITION appended to app.GROUNDING_RULES. "" = grounding-only
+# baseline; B_balanced is the deployed winner, imported from app (not re-pasted, [C2]).
 VARIANTS = {
     "A_current": "",
-    "B_balanced": (
-        "\n\nHow to write: clear and helpful like a good instructor, but CONCISE. "
-        "Lead with a one-line direct answer, then only the specifics the sources "
-        "support. Cover all relevant cases (e.g. day/night, airplane/rotorcraft) "
-        "without padding. Cite every claim [n]; use ONLY the sources."
-    ),
+    "B_balanced": app.BALANCED_STYLE,
     "C_warm": (
         "\n\nHow to write: like a friendly flight instructor — warm, plain language, "
         "thorough. Direct one-line answer first, then the specifics, then a brief "
@@ -48,14 +43,14 @@ DEFAULT_Q = "What are the fuel-reserve requirements for VFR flight, day versus n
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("question", nargs="?", default=DEFAULT_Q)
-    ap.add_argument("--method", default="hybrid", help="vector | bm25 | hybrid")
-    ap.add_argument("--k", type=int, default=5)
+    ap.add_argument("--method", default=app.CHAMPION_METHOD, help="vector | bm25 | hybrid")
+    ap.add_argument("--k", type=int, default=app.CHAMPION_K)
     ap.add_argument("--only", default=None, help="run a single variant by name")
     args = ap.parse_args()
 
-    hits = retrieve(args.question, app.INDEX, method=args.method, k=args.k, embed_model="minilm")
-    ctx = "\n\n".join(f"[{i + 1}] {h['text']}" for i, h in enumerate(hits))
-    user_content = f"CONTEXT:\n{ctx}\n\nQUESTION:\n{args.question}"
+    # Query with the index's own model (A1) — never a hardcoded minilm against bge.
+    hits = retrieve(args.question, app.INDEX, method=args.method, k=args.k, embed_model=app.EMBED)
+    user_content = f"CONTEXT:\n{format_context(hits)}\n\nQUESTION:\n{args.question}"
 
     print(f"Q: {args.question}")
     print(f"retrieval: {args.method} K={args.k} → {[h.get('section') for h in hits]}\n")
@@ -64,7 +59,7 @@ def main() -> None:
     for name, extra in variants.items():
         resp = app.client.messages.create(
             model="claude-sonnet-4-6", max_tokens=800,
-            system=app.SYSTEM_PROMPT + extra,
+            system=app.GROUNDING_RULES + extra,
             messages=[{"role": "user", "content": user_content}])
         tin, tout = resp.usage.input_tokens, resp.usage.output_tokens
         cost = tin * IN_PRICE + tout * OUT_PRICE

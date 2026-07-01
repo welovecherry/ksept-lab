@@ -104,20 +104,29 @@
 
 ---
 
-### [ ] 단계 3: SYSTEM_PROMPT 균형톤
-**띵크**: think — 프롬프트 문자열 추가 + 놀이터로 몇 문항 검증(로직 아님, 출력 판단).
+### [x] 단계 3: SYSTEM_PROMPT 균형톤 — 프롬프트 리더보드(3막 풀버전)
+**띵크**: think — 생성 하네스 + 심판 루브릭(로직은 가볍고, 출력 판단이 핵심).
 
-**변경 파일**: `rag-starter/backend/app.py`
+> **[확장 결정 2026-07-01]** 놀이터 눈검증(라이트 갈음) 대신 **STRATEGY §8.7 3막 풀버전**을 돌린다: 프롬프트 후보를 실제 생성→프로그램 인용검증→LLM 심판(루브릭)→**프롬프트 리더보드**. 검색 리더보드(단계1)와 같은 구조. 사용자 요청.
 
-**변경 내용**:
-- SYSTEM_PROMPT에 B(균형) 규칙: *직답 한 줄 → 필요한 특정만 → 관련 경우 다 커버(군더더기 없이) → 전부 [n] 인용 → 출처 밖 지식 금지.*
-  - **[리뷰 C2] 균형 프롬프트 문구는 한 곳에** — `try_prompt.py`와 `app.py`에 중복 복붙 금지. 공유 상수/모듈로 두거나, 놀이터에서 확정한 문구를 app.py로 *한 번* 옮기고 놀이터는 그걸 import.
-- **[리뷰 완전성] 라이트 갈음의 한계 명시**: STRATEGY §8.7 전체 3막(생성→LLM 심판)을 놀이터로 대체하면 **프롬프트 선택이 심판으로 검증되진 않음**(놀이터 눈검증 수준). 여유·예산 되면 finalist × 프롬프트를 실제 생성→심판으로 확정([수정3]).
+**변경 파일**: `harness/gen_answers.py`(신규), `harness/prompt_leaderboard.py`(신규), `harness/try_prompt.py`(DRY·팔로업 수정), `rag-starter/backend/app.py`(우승 프롬프트 반영)
+
+**설계**:
+- **후보 3프롬프트** = `try_prompt.VARIANTS`(단일 진실원, [C2 DRY]): `A_current`(현행)·`B_balanced`·`C_warm`. 각자 `app.SYSTEM_PROMPT`(그라운딩 base)에 붙는 add-on.
+- **질문 = tune 5개**(H01·H03·H06·H09·H14 — 다조항/단일/거부 혼합). **final 제외**(단계4 전용, §수정6 과적합 방지).
+- **생성**(공용 API, sonnet): `gen_answers.py`가 3×5=15 호출 → `prompt_runs.jsonl`(답변·토큰·인용). **[§5.1] system에 `cache_control`**.
+- **프로그램 검증**(무료 코드): 인용 [n] 유효성 + 인용된 청크가 정답 § 커버(`score._matches` 재사용).
+- **LLM 심판**(무료, 이 세션 opus): 답변별 루브릭 1~5(도움됨·완전함·그라운딩) → `judge_scores.jsonl`. **생성=sonnet / 심판=opus 분리**(자기편향↓, §8.5).
+- **`prompt_leaderboard.py`**: 프롬프트별 평균 심판점수 + 인용정합률 + 평균토큰 → `prompt_leaderboard.md`. 우승 프롬프트를 app.py에 반영.
+  - **[팔로업]** `try_prompt.py`의 `embed_model="minilm"` → `app.EMBED`(bge 정합).
+
+**비용 가드**: 생성만 공용키(≈$0.15). 심판·검증 0원. final 미사용.
 
 **통과 기준**:
-- `try_prompt.py`로 연습문제 몇 개 → 현재보다 명확·완전하되 토큰 안 폭증, 출처밖 상식 없음.
+- `prompt_leaderboard.md`에 3프롬프트 순위(심판·인용·토큰) 명확, 우승 프롬프트 확정.
+- 우승 프롬프트 반영 후 답: 명확·완전, 토큰 안 폭증, 출처밖 상식 없음, H14 인젝션 거부.
 
-**검증 통과 시 커밋**: `feat(backend): balanced answer prompt (helpful, complete, grounded)`
+**검증 통과 시 커밋**: `feat(backend): balanced answer prompt won by prompt leaderboard (gen+judge)`
 
 ---
 
@@ -146,6 +155,17 @@
 - **챔피언 확정 — leaderboard.py (2026-07-01):** 495줄(45설정×11문제)을 순위표로. **coverage 1등 = `section/bge/hybrid/K8`(0.864)**, 2·3등도 K8 hybrid(gte·minilm) 동률. 하지만 순위 규칙(coverage↓→MRR↓→비용↑)+근소차(±0.09) 밴드 최저비용 선택으로 **추천 = `section/bge/vector/K5`**(cov 0.818·**MRR 0.718**·비용 −38%). 근거: 11문제 중 0.046(≈½문제)차는 통계적 동점, K5가 실험 로그(토큰 실측) K=5 결정과 일치하고 정답을 더 위(MRR↑)에 놓음. **finalist 2개**(hybrid/K8 챔피언 + vector/K5 추천)를 단계 2로. char×큰모델 27개는 "미측정" 명시(속이지 않음). section 청킹이 상위 36개 독식(char는 37등부터).
 
 - **챔피언 검색 반영 — app.py + 재색인 (2026-07-01):** `index.pkl`을 **section/bge(1024d)로 재색인**(bge 캐시됨, 2184청크, ~8분). `app.py`: `search()(vector/minilm)` → `retrieve(method=vector, k=5, embed_model=bge, bm25=None)`. **A1 해결**: `index.meta.json` 사이드카에 embed_model 기록 → app.py가 `load_index_embed_model()`로 읽어 같은 모델로 질의 + startup 차원가드(불일치 시 loud 실패). 근본수정으로 `search()` 기본 모델도 인덱스 스탬프로(streamlit·verify_holdout 자동 정합, 동시세션 파일 미변경). 검증(무료): H06 종합질문 §91.130+§91.131 **2/2**(옛 vector/minilm 실패분 개선), startup 가드 통과, 하네스 44테스트 통과. **팔로업**: try_prompt.py의 `embed_model="minilm"` 하드코딩은 단계3에서 정리.
+
+- **프롬프트 리더보드 — 3막 풀버전 (2026-07-01):** 3프롬프트(A_current·B_balanced·C_warm) × tune 5문항(H01·H03·H06·H09·H14) = **15 생성**(sonnet, 공용키, system에 cache_control). 프로그램 인용검증(무료): 셋 다 인용오류 0·커버 0.88 동률. **LLM 심판(이 세션 opus, 무료)** 루브릭(도움됨·완전함·그라운딩 1~5) → **우승 B_balanced(4.93) > A_current(4.60) > C_warm(4.20)**. 변별점: 그라운딩은 셋 다 만점(인젝션 H14 모두 거부), **완전성에서 갈림** — C_warm은 장황해 out=800 상한에 3번 걸려 잘림, B는 다 덮고도 안 잘림. app.py `SYSTEM_PROMPT = GROUNDING_RULES + BALANCED_STYLE`(우승문구, 단일 진실원); try_prompt·gen_answers가 이를 공유([C2] DRY). 산출: `experiments/prompt_leaderboard.md`. 신규 하네스: `gen_answers.py`·`prompt_leaderboard.py`. /simplify 반영: 질문당 검색 1회·`retrieval.format_context()` 3파일 공유·심판누락 경고.
+
+- **우승 프롬프트(배포본) — 명시:** `rag-starter/backend/app.py`의 `SYSTEM_PROMPT = GROUNDING_RULES + BALANCED_STYLE`. 우승 델타 `BALANCED_STYLE`(= 놀이터 `B_balanced`, 단일 진실원):
+  ```text
+  How to write: clear and helpful like a good instructor, but CONCISE. Lead with a
+  one-line direct answer, then only the specifics the sources support. Cover all
+  relevant cases (e.g. day/night, airplane/rotorcraft) without padding. Cite every
+  claim [n]; use ONLY the sources.
+  ```
+  (앞의 `GROUNDING_RULES`는 기존 그라운딩·[n]인용·거부·약어풀이 규칙. 리더보드: `experiments/prompt_leaderboard.md`.)
 
 ## GSTACK REVIEW REPORT
 

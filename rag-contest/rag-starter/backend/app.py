@@ -30,7 +30,7 @@ from indexer import (
     load_index_embed_model,
 )
 
-from harness.retrieval import build_bm25, retrieve
+from harness.retrieval import build_bm25, format_context, retrieve
 
 load_dotenv()  # ANTHROPIC_API_KEY from .env
 
@@ -66,7 +66,7 @@ if _probe_dim != len(INDEX[0]["embedding"]):
 #   - If the context doesn't contain the answer, say so explicitly.
 # ════════════════════════════════════════════════════════════════
 
-SYSTEM_PROMPT = """You are a helpful assistant that answers questions using ONLY the \
+GROUNDING_RULES = """You are a helpful assistant that answers questions using ONLY the \
 sources provided in the CONTEXT block of each message.
 
 Rules:
@@ -82,6 +82,18 @@ sources do not cover.
 - When you first use an acronym or abbreviation, spell it out once — e.g., \
 "VFR (Visual Flight Rules)"."""
 
+# Answer style — won the prompt leaderboard (harness/prompt_leaderboard.py): B_balanced
+# beat A_current (too terse) and C_warm (verbose → truncated at max_tokens). Single
+# source of truth; harness/try_prompt.py imports this instead of re-pasting it ([C2]).
+BALANCED_STYLE = (
+    "\n\nHow to write: clear and helpful like a good instructor, but CONCISE. "
+    "Lead with a one-line direct answer, then only the specifics the sources "
+    "support. Cover all relevant cases (e.g. day/night, airplane/rotorcraft) "
+    "without padding. Cite every claim [n]; use ONLY the sources."
+)
+
+SYSTEM_PROMPT = GROUNDING_RULES + BALANCED_STYLE
+
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
@@ -92,8 +104,7 @@ def chat():
     # its answer and cite sources.
     hits = retrieve(user_message, INDEX, method=CHAMPION_METHOD, k=CHAMPION_K,
                     embed_model=EMBED, bm25=BM25)
-    context = "\n\n".join(f"[{i + 1}] {h['text']}" for i, h in enumerate(hits))
-    user_content = f"CONTEXT:\n{context}\n\nQUESTION:\n{user_message}"
+    user_content = f"CONTEXT:\n{format_context(hits)}\n\nQUESTION:\n{user_message}"
 
     resp = client.messages.create(
         model="claude-sonnet-4-6",
