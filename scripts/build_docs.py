@@ -1343,6 +1343,9 @@ flowchart LR
       </ul>
       <div class="ok"><b>반전 — 길이 ≠ 완전성:</b> C_warm이 가장 <b>장황</b>했는데(출력 577토큰, 800 상한에 3번 걸려 <b>잘림</b>) 완전성은 꼴찌. 우승 B는 <b>더 짧게(391) 쓰고도 다 덮음</b>. 즉 좋은 답은 *길어서*가 아니라 *빠짐없이 덮되 안 잘려서* 완전하다.</div>
       <p class="note">→ 최종 <code>SYSTEM_PROMPT = 그라운딩 규칙 + B_balanced 스타일</code>. 산출: <code>experiments/prompt_leaderboard.md</code>.</p>
+      <h3>🧩 어떻게 반영했나 — 프롬프트도 "한 곳에서 공유" (DRY)</h3>
+      <p>우승 문구를 여기저기 복붙하지 않는다. <b>app.py의 <code>SYSTEM_PROMPT</code> 한 곳을 단일 진실원</b>으로 두고, 실험 놀이터(<code>try_prompt.py</code>)와 생성기(<code>gen_answers.py</code>)가 <b>그걸 import해서 공유</b>한다 ([C2 DRY]).</p>
+      <div class="ok"><b>왜 중요?</b> 프롬프트를 3곳에 복붙하면 하나 고칠 때 3곳이 어긋난다(드리프트) — "실험은 B로 골랐는데 챗봇은 옛 A" 같은 사고. <b>한 곳만 두면</b> 실험·생성·챗봇이 <b>항상 같은 프롬프트</b>를 쓴다. 검색 쪽 <b>"인덱스 임베딩 = 쿼리 임베딩 단일 진실원"</b>(재색인의 A1)과 똑같은 원리.</p>
 
       <div class="ok"><b>✅ 그래서 최종 챗봇 =</b> 검색 <b>§경계/bge/vector/K5</b> + 말투 <b>B_balanced</b>. (검색은 이미 app.py에 반영·재색인 완료, 종합질문 H06 2/2로 개선 확인)</div>
 
