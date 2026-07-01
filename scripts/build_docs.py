@@ -873,7 +873,7 @@ flowchart LR
       <p>스타터(아폴로 예제)를 <b>FAA 항공법 챗봇</b>으로 갈아끼우는 5단계. 각 카드 =
         <b>목적 · 결과 · 막힌 점</b>. 통과기준·커밋 같은 실행 디테일은
         <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/todo/06_30_phase0_1.md">todo/06_30_phase0_1.md</a>에.</p>
-      <div class="ok"><b>지금 여기:</b> 단계 3-1(PDF 추출) 진행 중 — 1·2 완료, 3-2·4·5 예정. 별도 준비(임베딩 프리페치)도 완료.</div>
+      <div class="ok"><b>지금 여기:</b> <b>단계 5(§ 인용 표시)만 남음</b> — 1·2·3-1·3-2·4 완료(4는 커밋 대기), 임베딩 프리페치 완료.</div>
 
       <div class="step">
         <h4>준비 — 임베딩 후보 프리페치 <span class="st done">✅ 완료 (실험 2 선행)</span></h4>
@@ -903,7 +903,7 @@ flowchart LR
       </div>
 
       <div class="step">
-        <h4>단계 3-1 — PDF → 깨끗한 평문 추출 <span class="st now">🔄 진행중 · 미커밋</span></h4>
+        <h4>단계 3-1 — PDF → 깨끗한 평문 추출 <span class="st done">✅ 완료 · 9fe97ef</span></h4>
         <dl>
           <dt>목적</dt><dd>FAA 6 PDF를 머리말·쪽번호·러닝헤더를 걷어낸 평문 마크다운으로(§태깅은 3-2).</dd>
           <dt>결과</dt><dd>PyMuPDF로 <b>~480만 자</b> 추출. part91 연료조항(§91.151·§91.167) 온전, 리딩 블록만 제거해 boilerplate 0건 잔존 확인.</dd>
@@ -912,19 +912,21 @@ flowchart LR
       </div>
 
       <div class="step">
-        <h4>단계 3-2 — §·part 태깅 + 파서 테스트 <span class="st todo">⏳ 예정</span></h4>
+        <h4>단계 3-2 — §·part 태깅 + 파서 테스트 <span class="st done">✅ 완료 · 51eba47</span></h4>
         <dl>
           <dt>목적</dt><dd>평문에 <code>&lt;!-- §91.151 | part91 --&gt;</code> 꼬리표를 삽입하고 <code>parse_sections()</code>를 테스트로 검증.</dd>
           <dt>핵심</dt><dd>§ 글리프 하나에 의존 금지 → <code>§|Sec.|Section</code> 다중 패턴. part는 파일명이 아니라 <b>§번호 앞자리에서 유도</b>(vol1은 여러 part가 한 파일). § 블록 <b>&gt;50 하드게이트</b>로 조용한 0건 차단.</dd>
+          <dt>결과</dt><dd>1차엔 part91 태그가 <b>361개(과다)</b> — <code>§ 91.107(a)(3) of this chapter</code> 같은 <b>본문 참조</b>까지 제목으로 오인. 정규식에 <b>전방탐색(lookahead)</b> 추가(번호 뒤가 줄끝/대문자 제목일 때만 인정, 줄 시작에 고정) → <b>256개·중복 0</b>. §91.151 제목 정확 태깅, 파서 테스트 8건 통과.</dd>
+          <dt>막힌 점→해결</dt><dd>"조항 제목"과 "다른 조항을 가리키는 참조"가 글자로는 같음. <b>중복 태그 수</b>가 오탐의 신호(제목은 한 번뿐, 참조는 반복) → 중복 0이 곧 품질 증거.</dd>
         </dl>
       </div>
 
       <div class="step">
-        <h4>단계 4 — FAA 인덱싱 + §·part 메타 <span class="st todo">⏳ 예정</span></h4>
+        <h4>단계 4 — FAA 인덱싱 + §·part 메타 <span class="st now">✅ 검증 통과 · 커밋 대기</span></h4>
         <dl>
           <dt>목적</dt><dd>아폴로를 빼고 FAA만 §경계로 청킹, 각 레코드에 <code>section</code>·<code>part</code> 저장.</dd>
-          <dt>증명</dt><dd>빌드 후 FAA 질문 1개를 <code>search()</code> → <code>runs.jsonl</code>에 진짜 한 줄 적재(스키마를 선언이 아니라 <b>실행으로</b> 증명).</dd>
-          <dt>UI</dt><dd>화면 변화 없음(<code>index.pkl</code>이 FAA로 교체).</dd>
+          <dt>결과</dt><dd>아폴로 21개 → <code>_apollo_backup/</code> 이동. FAA <b>2,184 chunks</b>(part91 256·vol1 1,719 등), 전 레코드 section·part, <b>part 불일치 0</b>. 청킹 라우팅은 파일명 하드코딩 대신 <b>내용에 <code>&lt;!-- §</code> 있으면 §단위</b>로(T4/P2 해결).</dd>
+          <dt>증명</dt><dd>T5 스모크: "day VFR fuel-reserve" → top <b>§91.151</b>(정확!)·§91.167. <code>index_manifest</code> 1줄·<code>runs.jsonl</code> 1줄 실제 적재 → 스키마를 <b>실행으로</b> 증명.</dd>
         </dl>
       </div>
 
@@ -964,6 +966,14 @@ flowchart LR
         <li><b>한 일:</b> bge·e5·gte를 로컬 캐시(1.2G·1.2G·640M) + 스모크 통과. 전부 1024d, "연료 조항 &gt; 아폴로" 유사도 순서 정상.</li>
         <li><b>의미:</b> 후보 4종(+MiniLM) 모두 실전 준비 → 당일 다운로드 리스크 제거, 임베딩 교체가 "이름만 바꾸면" 되는 상태.</li>
         <li><b>상세:</b> 실측표는 <a href="rag-setup.html">04 모델 세팅</a>, 준비 카드는 <a href="rag-progress.html">07 진행 단계</a>.</li>
+      </ul>
+
+      <h3>2026-06-30 — Phase 1 진척: FAA 추출 → §태깅 → 인덱싱 (단계 3-1·3-2·4)</h3>
+      <ul>
+        <li><b>3-1 추출 (9fe97ef):</b> PyMuPDF로 6 PDF → 평문 md(~480만 자). 페이지 boilerplate 제거, 연료조항(§91.151·§91.167) 온전.</li>
+        <li><b>3-2 §태깅 (51eba47):</b> 조항마다 <code>&lt;!-- §… --&gt;</code> 꼬리표. 1차엔 <b>361개(과다)</b> — 본문 참조(<code>§ 91.107(a)(3)</code>)까지 오인 → 정규식 <b>lookahead</b>(줄시작+뒤가 제목)로 <b>256개·중복 0</b>. 파서 테스트 8건.</li>
+        <li><b>4 인덱싱 (커밋 대기):</b> 아폴로 백업, FAA <b>2,184 chunks</b>, part 불일치 0. T5 스모크 "day VFR fuel-reserve" → top <b>§91.151</b> 정확. runs/manifest 실제 1줄씩 적재.</li>
+        <li><b>남은 것:</b> 단계 5(답변 Sources에 <code>§91.151 (Part 91)</code> 노출)만 남음. 상세 카드 → <a href="rag-progress.html">07 진행 단계</a>.</li>
       </ul>
 
       <div class="ph"><b>다음 칸 — 날짜별로 계속 기록:</b> 오늘 한 일 / 막힌 점 / 해결.</div>
