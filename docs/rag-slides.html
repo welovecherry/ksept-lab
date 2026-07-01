@@ -370,6 +370,29 @@
       <div class="ok"><b>One theme across every choice:</b> <i>measure, don't guess</i> — and always
         weigh <b>quality ↔ cost</b>. That is how each decision here was made.</div>
 
+    </section>
+
+    <!-- ================= SLIDE 11 — STATIC vs AGENTIC (closing) ================= -->
+    <section class="slide">
+      <div class="kicker">The two engines, compared</div>
+      <h2>Static RAG vs Agentic — the real difference</h2>
+      <p class="lead">Single-shot is a straight line: retrieve → stuff → generate.
+        Agentic <b>flips control</b> — the model decides when to search and when to answer;
+        our code is just the postman between the model and the tool.</p>
+
+      <table>
+        <tr><th></th><th>Single-shot <span class="muted">(deployed)</span></th><th>Agentic</th></tr>
+        <tr><td><b>Who drives search</b></td><td>our code</td><td>the model</td></tr>
+        <tr><td><b>API calls</b></td><td>exactly 1</td><td>searches + 1 (a loop)</td></tr>
+        <tr><td><b>Cost</b></td><td class="green">flat (~2.3k)</td><td class="red">grows ~N² with searches</td></tr>
+        <tr><td><b>Strength</b></td><td>cheap, predictable</td><td>cross-Part questions · self-correction</td></tr>
+        <tr><td><b>Core code</b></td><td>none — a straight line</td><td>stop_reason loop · global citations · budget guard</td></tr>
+      </table>
+
+      <div class="ok"><b>The heart of agentic:</b> a tool-use loop that keeps going while
+        <code>stop_reason == "tool_use"</code> and stops when the model says <code>end_turn</code>.
+        Only ~125 lines — but the control is inverted.</div>
+
       <p class="title-foot">Thanks! &nbsp;·&nbsp; Questions welcome.</p>
     </section>
 
@@ -378,7 +401,7 @@
   <div id="hint">← → or Space to move · F for fullscreen</div>
   <div id="nav">
     <button id="prev" aria-label="previous">‹</button>
-    <span id="count">1 / 10</span>
+    <span id="count">1 / 11</span>
     <button id="next" aria-label="next">›</button>
   </div>
 
