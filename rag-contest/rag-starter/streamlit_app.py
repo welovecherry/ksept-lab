@@ -157,7 +157,7 @@ def _format_answer(text: str, citations: list[dict]) -> str:
     return _colorize(text)
 
 
-def stream_answer(question, hits, placeholder):
+def stream_answer(question, hits, placeholder, history):
     """Stream the answer into `placeholder` token-by-token; return (text, meta).
 
     Raw tokens render live with a cursor for perceived speed; the caller swaps in
@@ -165,14 +165,19 @@ def stream_answer(question, hits, placeholder):
     come from the final message — the "meta arrives at the end" contract (①) that
     stages 1-2 were built around, which is why streaming drops in without reshaping
     the message. `format_context` is the shared numbering helper app.py uses too.
+
+    `history` is the prior turns as plain Q/A text. Only the CURRENT turn carries a
+    CONTEXT block (freshly retrieved) — past contexts are NOT replayed, or every
+    follow-up would resend 5 chunks and blow up input tokens (E2 / Cost 15).
     """
     user_content = f"CONTEXT:\n{format_context(hits)}\n\nQUESTION:\n{question}"
+    messages = history + [{"role": "user", "content": user_content}]
     full = ""
     with get_client().messages.stream(
         model=MODEL,
         max_tokens=MAX_TOKENS,
         system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_content}],
+        messages=messages,
     ) as stream:
         for chunk in stream.text_stream:
             full += chunk
@@ -266,16 +271,28 @@ if prompt:
         st.markdown(prompt)
 
     with st.chat_message("assistant", avatar=AVATARS["assistant"]):
+        # 4c query contextualization: a bare follow-up ("what about at night?") has no
+        # topic words, so embedding it alone retrieves the wrong chunks. Prepend the
+        # previous question so the SEARCH inherits the subject. Only the search query
+        # is augmented — generation still gets the current prompt (the model already
+        # has the conversation as history). No extra LLM call, so it's free.
+        prev_q = [m["text"] for m in st.session_state.messages[:-1] if m["role"] == "user"]
+        search_query = f"{prev_q[-1]} {prompt}" if prev_q else prompt
+
         # 4b retrieval-first: show what we found before the answer starts generating.
-        hits = retrieve(prompt, index, method=CHAMPION_METHOD, k=CHAMPION_K,
+        hits = retrieve(search_query, index, method=CHAMPION_METHOD, k=CHAMPION_K,
                         embed_model=embed_model, bm25=bm25)
         found = list(dict.fromkeys(h.get("section") or h.get("source") for h in hits))[:3]
         st.caption(f"🔍 Found {' · '.join(found)} · {CHAMPION_METHOD}·K{CHAMPION_K}")
 
+        # 4c multi-turn: prior turns as plain Q/A (no old CONTEXT blocks — E2).
+        history = [{"role": m["role"], "content": m["text"]}
+                   for m in st.session_state.messages[:-1]]
+
         # 4a streaming: type the raw answer into a placeholder, then swap in the
         # formatted version (§ tint + [n] labels) once we have the full text.
         placeholder = st.empty()
-        reply, meta = stream_answer(prompt, hits, placeholder)
+        reply, meta = stream_answer(prompt, hits, placeholder, history)
         citations = _cited(reply, hits)
         placeholder.markdown(_format_answer(reply, citations))
         render_footer(meta, citations, reply)
