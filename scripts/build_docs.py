@@ -819,7 +819,7 @@ export TRANSFORMERS_OFFLINE=1</code></pre>
  "question":"day VFR fuel-reserve 요건?",
  "expected_sections":["§91.151"],   ← 정답 §조항 (채점 열쇠)
  "expect_refusal":false,            ← 답해야 함(true면 '거부가 정답')
- "note":"day=30min 추정 — 확인"}</code></pre>
+ "note":"✅ §91.151 확정 (day=30min)"}</code></pre>
       <p><b>정답이 두 종류다:</b></p>
       <table class="cmp">
         <tr><th>종류</th><th>정답</th><th>예</th><th>재는 점수</th></tr>
@@ -827,7 +827,16 @@ export TRANSFORMERS_OFFLINE=1</code></pre>
         <tr><td>거부하기 (<code>expect_refusal:true</code>)</td><td><b>답 안 하는 게 정답</b></td><td>H12 맛집·H13 월드컵(범위밖), <b>H14 인젝션</b></td><td>견고성·안전 10점</td></tr>
       </table>
       <p>문제 유형(<code>type</code>)을 <b>골고루</b> 섞었다: definition·numeric·comparison·procedure·cross(여러 편 교차)·out_of_scope·adversarial. → 루브릭 항목을 미리 다 연습하는 축소판.</p>
-      <div class="warn"><b>⚠️ 지금 상태 — 정답 라벨이 아직 "추정":</b> 여러 문제의 <code>expected_sections</code>가 <code>null</code>/"추정"(H01·H02·H06 등). <b>정답 라벨이 틀리면 Recall@K가 거짓 점수</b>를 내 밤샘 실험이 틀린 방향으로 달린다(차단 작업). → Phase 1 인덱싱이 끝났으니 <code>grep</code>으로 <i>정답 § 청크에 질문 키워드가 실제 있는지</i> 대조해 확정 (예: H03 → §91.151 청크에 "30 minutes"·"fuel").</div>
+      <div class="ok"><b>✅ 정답 라벨 확정 완료 (93ca724):</b> H01~H11의 정답 §을 FAA 인덱스에 대조해 채움(H01→§1.2·H03→§91.151·H10→§61.57 등). H12~H14는 <b>거부 문제라 <code>null</code>이 정답</b>. → 이제 Recall@K 채점을 신뢰할 수 있다(차단 작업 해소).</div>
+
+      <p><b>실험이 쓰는 데이터 파일은 셋 — 성격이 다르다:</b></p>
+      <table class="cmp">
+        <tr><th>파일</th><th>담는 것</th><th>누가·언제</th><th>변하나?</th></tr>
+        <tr><td><code>holdout.jsonl</code></td><td><b>정답지</b> (14문제 + 각 정답 §)</td><td>사람이 만들고 확정</td><td><b>❌ 고정</b> (기준)</td></tr>
+        <tr><td><code>runs.jsonl</code></td><td>실험 결과 (설정별 채점 점수)</td><td>하네스가 밤새 append</td><td>✅ 계속 쌓임</td></tr>
+        <tr><td><code>index_manifest.jsonl</code></td><td>인덱스 빌드 기록</td><td>인덱서가 빌드마다</td><td>✅ 쌓임</td></tr>
+      </table>
+      <div class="ok"><b>핵심 — 기준 1개(고정) vs 로그 2개(쌓임).</b> <code>holdout</code>은 채점의 <b>자(尺)</b>라 절대 안 변해야 하고(변하면 점수 비교가 무의미), <code>runs</code>·<code>manifest</code>는 <b>append-only 로그</b>라 밤새 죽어도 이미 쓴 줄은 안전. <b>기준과 결과를 섞지 않는 것</b>이 재현성의 뼈대.</div>
 
       <h3>⑥ 채점 3종 + 기록 원칙</h3>
       <div class="term"><b>Recall@K</b> = 정답 §이 상위 K에 든 비율(무료). 정답이 여러 개면 <b>커버리지</b>(몇 개 맞췄나), 순위는 <b>MRR</b>로 보강.</div>
