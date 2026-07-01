@@ -11,7 +11,9 @@ module-level side effects (load_index, Anthropic(), Flask). Once the output
 session extracts the prompt to backend/prompts.py, replace the constant below
 with:  from prompts import SYSTEM_PROMPT
 """
+import json
 import re
+from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
@@ -25,13 +27,18 @@ from indexer import (
     load_index,
     load_index_embed_model,
 )
-from harness.retrieval import build_bm25, format_context, retrieve
+from harness.retrieval import build_bm25, format_context, retrieve, select_context
 
 load_dotenv(Path(__file__).parent / ".env")  # ANTHROPIC_API_KEY (shared class key)
 
 MODEL = "claude-sonnet-4-6"
 MAX_TOKENS = 1024
 AVATARS = {"user": "🧑", "assistant": "🛩️"}
+
+# Append-only record of every live chat turn (tokens/cost per attempt) so we can
+# compare prompt/retrieval tweaks empirically. Lands in the repo's shared
+# experiments stream dir (already .gitignore'd) next to prompt_runs.jsonl etc.
+ATTEMPTS_LOG = Path(__file__).resolve().parent.parent / "experiments" / "chat_attempts.jsonl"
 
 # (input, output) USD per million tokens, keyed by model so the cost badge stays
 # correct if the champion model changes. Unknown model → $0 (badge shows ~$0).
@@ -95,6 +102,35 @@ def _cost_usd(model: str, tin: int, tout: int) -> float:
     return tin / 1e6 * pin + tout / 1e6 * pout
 
 
+def log_attempt(question: str, meta: dict, found: list[str]) -> None:
+    """Append one JSON line per completed chat turn for offline token analysis.
+
+    Called ONLY from the `if prompt:` block after a fresh answer streams, so it's
+    one line per real question — not once per Streamlit rerun. Failure to log must
+    never break the chat, so any I/O error is swallowed (best-effort telemetry).
+    Read back later with: pandas.read_json(ATTEMPTS_LOG, lines=True).
+    """
+    tin, tout = meta["tokens_in"], meta["tokens_out"]
+    row = {
+        "kind": "chat_attempt",
+        "ts": datetime.now().isoformat(timespec="seconds"),
+        "question": question,
+        "tokens": {"in": tin, "out": tout},
+        "total": tin + tout,
+        "cost_usd": round(meta["cost_usd"], 6),
+        "method": meta["method"],
+        "k": meta["k"],
+        "model": meta["model"],
+        "found": found,
+    }
+    try:
+        ATTEMPTS_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with ATTEMPTS_LOG.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    except OSError:
+        pass  # telemetry is best-effort; never let logging break the answer
+
+
 def _citation_label(hit: dict) -> str:
     """'§91.151 (Part 91)' for FAA chunks; fall back to the source filename."""
     section, part = hit.get("section"), hit.get("part")
@@ -106,18 +142,23 @@ def _citation_label(hit: dict) -> str:
 def _cited(answer_text: str, hits: list[dict]) -> list[dict]:
     """Parse the [n] markers the answer actually used, mapped to their hit.
 
-    Deduped, in first-use order, out-of-range dropped — same rule as app.py's
-    _build_citations, inlined to avoid importing app.py (its module-level side
-    effects). Each entry carries the label + chunk text for the source card.
+    Citations appear in order of first use and are RENUMBERED 1..N. The model cites
+    retrieval indices, so a valid answer can read [4]…[1]…[5] (out of order, with
+    gaps); renumbering by first appearance makes the reader see [1][2][3]. Each entry
+    keeps `old` (the retrieval index) so _format_answer can remap the answer's markers.
+    Inlined (not imported from app.py) to avoid that module's import-time side effects.
     """
-    seen, out = set(), []
-    for n in (int(m) for m in re.findall(r"\[(\d+)\]", answer_text)):
-        if n in seen or not (1 <= n <= len(hits)):
+    order, remap = [], {}
+    for old in (int(m) for m in re.findall(r"\[(\d+)\]", answer_text)):
+        if old in remap or not (1 <= old <= len(hits)):
             continue
-        seen.add(n)
-        h = hits[n - 1]
-        out.append({"n": n, "label": _citation_label(h), "section": h.get("section"),
-                    "text": h.get("text", "")})
+        remap[old] = len(order) + 1
+        order.append(old)
+    out = []
+    for old in order:
+        h = hits[old - 1]
+        out.append({"n": remap[old], "old": old, "label": _citation_label(h),
+                    "section": h.get("section"), "text": h.get("text", "")})
     return out
 
 
@@ -145,16 +186,20 @@ def _colorize(text: str) -> str:
 
 
 def _format_answer(text: str, citations: list[dict]) -> str:
-    """Expand bare [n] markers to [n §xxx] (so the cited clause is visible inline
-    without scrolling to the cards), then tint the § references. Markers whose hit
-    has no section (non-FAA chunk) stay bare. Both passes are safe markdown, no HTML.
+    """Renumber the answer's [n] markers to match the 1..N source cards and expand
+    each to `[n] §xxx` (cited clause visible inline), then tint the § references.
+    Markers with no matching citation stay as-is. Safe markdown, no raw HTML.
     """
-    section = {c["n"]: c["section"] for c in citations if c.get("section")}
-    text = re.sub(r"\[(\d+)\]",
-                  lambda m: f"[{m.group(1)}] {section[int(m.group(1))]}"
-                  if int(m.group(1)) in section else m.group(0),
-                  text)
-    return _colorize(text)
+    remap = {c["old"]: (c["n"], c.get("section")) for c in citations}
+
+    def sub(m):
+        old = int(m.group(1))
+        if old not in remap:
+            return m.group(0)
+        new, section = remap[old]
+        return f"[{new}] {section}" if section else f"[{new}]"
+
+    return _colorize(re.sub(r"\[(\d+)\]", sub, text))
 
 
 def stream_answer(question, hits, placeholder, history):
@@ -206,8 +251,8 @@ def render_footer(meta: dict | None, citations: list[dict], text: str) -> None:
         # so unsafe_allow_html is safe here.
         total = meta["tokens_in"] + meta["tokens_out"]
         chips = (
-            f'<span class="chip" title="{meta["tokens_in"]:,} in · {meta["tokens_out"]:,} out">'
-            f'{total:,} tok</span>'
+            f'<span class="chip">Input {meta["tokens_in"]:,} · '
+            f'Output {meta["tokens_out"]:,} · Total {total:,} tokens</span>'
             f'<span class="chip">~${meta["cost_usd"]:.4f}</span>'
             f'<span class="chip">{meta["method"]} · K{meta["k"]}</span>'
             f'<span class="chip">{meta["model"]}</span>'
@@ -265,23 +310,28 @@ if not st.session_state.messages:
         if st.button(_q, use_container_width=True):
             prompt = _q
 
+# Record a new question, then rerun so it renders through the replay loop above —
+# never live. That removes the live/replay double-render that broke consecutive
+# turns. The answer is generated below whenever the last turn is an unanswered user.
 if prompt:
     st.session_state.messages.append({"role": "user", "text": prompt})
-    with st.chat_message("user", avatar=AVATARS["user"]):
-        st.markdown(prompt)
+    st.rerun()
 
+if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
+    q = st.session_state.messages[-1]["text"]
     with st.chat_message("assistant", avatar=AVATARS["assistant"]):
-        # 4c query contextualization: a bare follow-up ("what about at night?") has no
-        # topic words, so embedding it alone retrieves the wrong chunks. Prepend the
-        # previous question so the SEARCH inherits the subject. Only the search query
-        # is augmented — generation still gets the current prompt (the model already
-        # has the conversation as history). No extra LLM call, so it's free.
+        # 4c query contextualization: prepend the previous question so a bare
+        # follow-up ("what about at night?") inherits the topic for retrieval.
+        # Generation still gets q (the model already has the conversation as history).
         prev_q = [m["text"] for m in st.session_state.messages[:-1] if m["role"] == "user"]
-        search_query = f"{prev_q[-1]} {prompt}" if prev_q else prompt
+        search_query = f"{prev_q[-1]} {q}" if prev_q else q
 
-        # 4b retrieval-first: show what we found before the answer starts generating.
+        # 4b retrieval-first + token cap: retrieve, then keep only the query-relevant
+        # windows of each chunk (huge § like 61.109 → ~1.6k tokens, not ~15k). Windows
+        # inherit the parent § meta, so citations still resolve.
         hits = retrieve(search_query, index, method=CHAMPION_METHOD, k=CHAMPION_K,
                         embed_model=embed_model, bm25=bm25)
+        hits = select_context(search_query, hits, embed_model)
         found = list(dict.fromkeys(h.get("section") or h.get("source") for h in hits))[:3]
         st.caption(f"🔍 Found {' · '.join(found)} · {CHAMPION_METHOD}·K{CHAMPION_K}")
 
@@ -289,13 +339,14 @@ if prompt:
         history = [{"role": m["role"], "content": m["text"]}
                    for m in st.session_state.messages[:-1]]
 
-        # 4a streaming: type the raw answer into a placeholder, then swap in the
-        # formatted version (§ tint + [n] labels) once we have the full text.
+        # 4a streaming: type raw tokens into a placeholder, swap in the formatted
+        # answer (§ tint + [n] labels) once complete.
         placeholder = st.empty()
-        reply, meta = stream_answer(prompt, hits, placeholder, history)
+        reply, meta = stream_answer(q, hits, placeholder, history)
         citations = _cited(reply, hits)
         placeholder.markdown(_format_answer(reply, citations))
         render_footer(meta, citations, reply)
+        log_attempt(q, meta, found)
 
     st.session_state.messages.append(
         {"role": "assistant", "text": reply, "meta": meta, "citations": citations})
