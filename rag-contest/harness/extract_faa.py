@@ -38,6 +38,51 @@ _BOILERPLATE = re.compile(
 )
 
 
+# A section heading starts a line: "§ 91.151", "Sec. 91.151", or "Section 91.151".
+# Anchored to line start (re.MULTILINE) so inline cross-references mid-sentence
+# ("... as provided in § 91.167 ...") are NOT mistaken for section boundaries.
+# Matching more than the bare § glyph guards against the § dropping in extraction
+# (a single-point-of-failure that would silently null every tag).
+#
+# The trailing lookahead separates a heading from a cross-reference that happens
+# to wrap to a line start: a real heading is the number followed by end-of-line
+# or a Capitalized title, whereas a reference continues with a "(a)(3)" subsection
+# or lowercase prose ("§ 91.107(a)(3) of this chapter"). Horizontal-space classes
+# ([ \t], not \s) keep the match from jumping across a line break.
+_SECTION_RE = re.compile(
+    r"^(?:§|Sec\.|Section)[ \t]*(\d+\.\d+\w?)(?=[ \t]*$|[ \t]+[A-Z])",
+    re.MULTILINE,
+)
+
+# part91 is the big file; if it tags far too few sections, extraction or the §
+# pattern silently broke — fail the build rather than ship an untagged corpus.
+MIN_PART91_SECTIONS = 50
+
+
+def _part_of(section_number: str) -> str:
+    """'91.151' -> 'part91'; '1.1' -> 'part1'. Derived from the number, not the
+    filename, so vol1 (Parts 1–59 in one file) tags each section to its own part."""
+    return "part" + section_number.split(".")[0]
+
+
+def parse_sections(text: str) -> list[tuple[str, str]]:
+    """Return [(section, part), ...] for every section heading in `text`.
+
+    section is normalized with a leading § and no space ('§91.151'); part is
+    derived from the section number. Returns [] when the text has no headings.
+    """
+    return [(f"§{m.group(1)}", _part_of(m.group(1))) for m in _SECTION_RE.finditer(text)]
+
+
+def tag_sections(text: str) -> str:
+    """Insert a '<!-- §91.151 | part91 -->' comment before each section heading."""
+    def _mark(m: re.Match) -> str:
+        num = m.group(1)
+        return f"<!-- §{num} | {_part_of(num)} -->\n{m.group(0)}"
+
+    return _SECTION_RE.sub(_mark, text)
+
+
 def _out_name(pdf_name: str) -> str:
     """CFR-2025-title14-vol2-part91.pdf -> 'part91'; ...-vol1.pdf -> 'vol1'."""
     m = re.search(r"part\d+", pdf_name) or re.search(r"vol\d+", pdf_name)
@@ -76,12 +121,24 @@ def main() -> None:
     pdfs = sorted(PDF_DIR.glob("CFR-*.pdf"))
     if not pdfs:
         raise SystemExit(f"No CFR PDFs found in {PDF_DIR}")
+    counts: dict[str, int] = {}
     for pdf in pdfs:
-        out = OUT_DIR / f"{_out_name(pdf.name)}.md"  # fail fast before extracting
-        text = extract_pdf(pdf)
+        name = _out_name(pdf.name)  # fail fast before extracting
+        text = tag_sections(extract_pdf(pdf))
+        out = OUT_DIR / f"{name}.md"
         out.write_text(text, encoding="utf-8")
-        print(f"  {pdf.name} → {out.name}  ({len(text):,} chars)")
-    print(f"\n✓ Extracted {len(pdfs)} PDFs → {OUT_DIR}/")
+        counts[name] = text.count("<!-- §")
+        print(f"  {pdf.name} → {out.name}  ({len(text):,} chars, {counts[name]} sections)")
+
+    # Hard gate against a silent 0-tag build (dropped § glyph, broken pattern).
+    canary = counts.get("part91", 0)
+    if canary < MIN_PART91_SECTIONS:
+        raise SystemExit(
+            f"§-tagging gate FAILED: part91 tagged {canary} sections "
+            f"(< {MIN_PART91_SECTIONS}). Extraction or the § pattern is broken."
+        )
+    print(f"\n✓ Tagged {len(pdfs)} PDFs → {OUT_DIR}/  "
+          f"(part91 gate: {canary} ≥ {MIN_PART91_SECTIONS})")
 
 
 if __name__ == "__main__":
