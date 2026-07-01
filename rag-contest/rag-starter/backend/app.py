@@ -13,15 +13,24 @@ import re
 import sys
 from pathlib import Path
 
-# Make the parent directory importable so we can use indexer.py
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# rag-starter/ (for indexer) and rag-contest/ (for the harness package) on path.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-from indexer import load_index, search
+from indexer import (
+    CHAMPION_K,
+    CHAMPION_METHOD,
+    embed,
+    load_index,
+    load_index_embed_model,
+)
+
+from harness.retrieval import build_bm25, retrieve
 
 load_dotenv()  # ANTHROPIC_API_KEY from .env
 
@@ -31,7 +40,22 @@ client = Anthropic()
 
 # Load the index once at startup. Fails fast if no index — run `python indexer.py` first.
 INDEX = load_index()
-print(f"Loaded {len(INDEX)} chunks from disk")
+# Query with the SAME model the index was built with (A1 single source of truth).
+EMBED = load_index_embed_model()
+# BM25 is only needed by bm25/hybrid retrieval; build it ONCE, not per request
+# ([R3]), and skip the work entirely for pure-vector champions.
+BM25 = build_bm25(INDEX) if CHAMPION_METHOD in ("bm25", "hybrid") else None
+print(f"Loaded {len(INDEX)} chunks (embed={EMBED}, method={CHAMPION_METHOD}, k={CHAMPION_K})")
+
+# Fail loud if the query model's dimension doesn't match the stored vectors — a
+# mismatched-dim query returns silently wrong neighbors (zip truncates), which is
+# exactly the "no error, meaningless results" trap A1 warns about.
+_probe_dim = len(embed(["dimension probe"], EMBED, is_query=True)[0])
+if _probe_dim != len(INDEX[0]["embedding"]):
+    raise SystemExit(
+        f"embed model {EMBED!r} is {_probe_dim}-dim but index is "
+        f"{len(INDEX[0]['embedding'])}-dim — re-run `python indexer.py`."
+    )
 
 
 # ════════════════════════════════════════════════════════════════
@@ -63,9 +87,11 @@ sources do not cover.
 def chat():
     user_message = request.json["message"]
 
-    # Retrieve the top-K most relevant chunks, then augment the prompt with a
-    # numbered context block so the model can ground its answer and cite sources.
-    hits = search(user_message, INDEX, k=5)
+    # Retrieve the top-K most relevant chunks with the champion config, then
+    # augment the prompt with a numbered context block so the model can ground
+    # its answer and cite sources.
+    hits = retrieve(user_message, INDEX, method=CHAMPION_METHOD, k=CHAMPION_K,
+                    embed_model=EMBED, bm25=BM25)
     context = "\n\n".join(f"[{i + 1}] {h['text']}" for i, h in enumerate(hits))
     user_content = f"CONTEXT:\n{context}\n\nQUESTION:\n{user_message}"
 

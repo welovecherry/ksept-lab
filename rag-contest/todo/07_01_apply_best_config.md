@@ -84,7 +84,7 @@
 
 ---
 
-### [ ] 단계 2: app.py를 챔피언으로 (검색 교체)
+### [x] 단계 2: app.py를 챔피언으로 (검색 교체)
 **띵크**: think hard — 임베딩 일치·BM25 startup·regression 등 회귀 민감. 조용한 버그 위험.
 
 **변경 파일**: `rag-starter/indexer.py`(재색인 필요시), `rag-starter/backend/app.py`
@@ -144,6 +144,8 @@
 ---
 
 - **챔피언 확정 — leaderboard.py (2026-07-01):** 495줄(45설정×11문제)을 순위표로. **coverage 1등 = `section/bge/hybrid/K8`(0.864)**, 2·3등도 K8 hybrid(gte·minilm) 동률. 하지만 순위 규칙(coverage↓→MRR↓→비용↑)+근소차(±0.09) 밴드 최저비용 선택으로 **추천 = `section/bge/vector/K5`**(cov 0.818·**MRR 0.718**·비용 −38%). 근거: 11문제 중 0.046(≈½문제)차는 통계적 동점, K5가 실험 로그(토큰 실측) K=5 결정과 일치하고 정답을 더 위(MRR↑)에 놓음. **finalist 2개**(hybrid/K8 챔피언 + vector/K5 추천)를 단계 2로. char×큰모델 27개는 "미측정" 명시(속이지 않음). section 청킹이 상위 36개 독식(char는 37등부터).
+
+- **챔피언 검색 반영 — app.py + 재색인 (2026-07-01):** `index.pkl`을 **section/bge(1024d)로 재색인**(bge 캐시됨, 2184청크, ~8분). `app.py`: `search()(vector/minilm)` → `retrieve(method=vector, k=5, embed_model=bge, bm25=None)`. **A1 해결**: `index.meta.json` 사이드카에 embed_model 기록 → app.py가 `load_index_embed_model()`로 읽어 같은 모델로 질의 + startup 차원가드(불일치 시 loud 실패). 근본수정으로 `search()` 기본 모델도 인덱스 스탬프로(streamlit·verify_holdout 자동 정합, 동시세션 파일 미변경). 검증(무료): H06 종합질문 §91.130+§91.131 **2/2**(옛 vector/minilm 실패분 개선), startup 가드 통과, 하네스 44테스트 통과. **팔로업**: try_prompt.py의 `embed_model="minilm"` 하드코딩은 단계3에서 정리.
 
 ## GSTACK REVIEW REPORT
 

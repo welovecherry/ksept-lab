@@ -8,6 +8,7 @@ you can focus on the structure.
 """
 from __future__ import annotations  # allow `X | None` annotations on Python 3.9
 
+import json
 import pickle
 import re
 import sys
@@ -19,12 +20,15 @@ from sentence_transformers import SentenceTransformer
 # Put rag-contest/ on the path so both `python indexer.py` and app.py's
 # `from indexer import ...` can reach the shared harness package ([리뷰 T1]).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from harness.recorder import log_index_build, log_run, new_id
+from harness.recorder import log_index_build, new_id
 
 # Multilingual (50+ languages), 384-dim — same model as the /embedding project.
 # Lets the corpus and the queries be in different languages and still match.
 MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 INDEX_PATH = Path(__file__).parent / "index.pkl"
+# Sidecar: which embed model built index.pkl, so a reader queries with the same
+# one (A1 — a bge index must never be silently queried with minilm).
+INDEX_META_PATH = Path(__file__).parent / "index.meta.json"
 DOCS_DIR = Path(__file__).parent / "documents"
 
 
@@ -137,6 +141,15 @@ EMBED_MODELS = {
 }
 DEFAULT_MODEL = "minilm"
 
+# ── Champion config (chosen by harness/leaderboard.py, 3막) ──────────────────
+# Single source of truth for the deployed retrieval setup. The index is BUILT
+# with CHAMPION_EMBED and app.py QUERIES with the same, so build- and query-time
+# can never silently diverge. Update these when the leaderboard picks a new best.
+CHAMPION_CHUNKER = "section"
+CHAMPION_EMBED = "bge"
+CHAMPION_METHOD = "vector"
+CHAMPION_K = 5
+
 _models: dict[str, SentenceTransformer] = {}
 
 
@@ -198,9 +211,11 @@ def build_index(chunker: str = "route", embed_model: str = DEFAULT_MODEL) -> lis
     return records
 
 
-def save_index(records: list[dict]) -> None:
+def save_index(records: list[dict], embed_model: str = DEFAULT_MODEL) -> None:
     with INDEX_PATH.open("wb") as f:
         pickle.dump(records, f)
+    # Stamp which model embedded these vectors (A1), next to the pickle.
+    INDEX_META_PATH.write_text(json.dumps({"embed_model": embed_model}), encoding="utf-8")
 
 
 def load_index() -> list[dict]:
@@ -212,14 +227,29 @@ def load_index() -> list[dict]:
         return pickle.load(f)
 
 
+def load_index_embed_model() -> str:
+    """Model this index was built with; fall back to the champion for an older
+    index that predates the sidecar (its vectors are the minilm default)."""
+    if INDEX_META_PATH.exists():
+        return json.loads(INDEX_META_PATH.read_text(encoding="utf-8"))["embed_model"]
+    return DEFAULT_MODEL
+
+
 def cosine_distance(a: list[float], b: list[float]) -> float:
     # Both vectors are unit-normalized, so cosine distance == 1 - dot product.
     return 1.0 - sum(x * y for x, y in zip(a, b))
 
 
 def search(query: str, records: list[dict], k: int = 5,
-           model_name: str = DEFAULT_MODEL) -> list[dict]:
-    """Embed the query (with the model's query prefix), return top-k by cosine."""
+           model_name: str | None = None) -> list[dict]:
+    """Embed the query (with the model's query prefix), return top-k by cosine.
+
+    model_name defaults to the model the on-disk index was built with (A1), so a
+    caller can't silently query a bge index with minilm just by omitting it.
+    Pass an explicit name only to override that.
+    """
+    if model_name is None:
+        model_name = load_index_embed_model()
     [query_vec] = embed([query], model_name, is_query=True)
     scored = [(cosine_distance(r["embedding"], query_vec), r) for r in records]
     scored.sort(key=lambda x: x[0])
@@ -231,16 +261,18 @@ def _now() -> str:
 
 
 def main() -> None:
-    print(f"Indexing documents from {DOCS_DIR}/")
-    records = build_index()
-    save_index(records)
-    print(f"\n✓ Indexed {len(records)} chunks → {INDEX_PATH.name}")
+    """Build the DEPLOYED index = the champion config, so `python indexer.py`
+    reproduces exactly what app.py serves (section chunks embedded with bge)."""
+    print(f"Indexing {DOCS_DIR}/ as champion: {CHAMPION_CHUNKER}/{CHAMPION_EMBED}")
+    records = build_index(CHAMPION_CHUNKER, CHAMPION_EMBED)
+    save_index(records, CHAMPION_EMBED)
+    print(f"\n✓ Indexed {len(records)} chunks with '{CHAMPION_EMBED}' → {INDEX_PATH.name}")
 
     # Record the build (success or not) as one manifest line.
     build_id = new_id("idx")
     log_index_build({
         "kind": "index_build", "build_id": build_id, "ts": _now(),
-        "config": {"chunking": "section", "embed_model": MODEL_NAME, "corpus": "faa"},
+        "config": {"chunking": CHAMPION_CHUNKER, "embed_model": CHAMPION_EMBED, "corpus": "faa"},
         "result": {
             "status": "ok",
             "n_chunks": len(records),
@@ -250,20 +282,12 @@ def main() -> None:
         "status": "ok", "error": None,
     })
 
-    # [리뷰 T5] End-to-end smoke: prove the runs.jsonl schema by writing a REAL
-    # line from an actual retrieval, not a hand-declared example.
+    # Sanity smoke — stdout only. Deliberately NOT logged to runs.jsonl: that
+    # file is the frozen 495-row grid leaderboard.py ranks; a stray smoke row
+    # would pollute the champion's averages.
     question = "What are the day VFR fuel-reserve requirements for an airplane?"
-    hits = search(question, records, k=5)
-    top_sections = [h.get("section") for h in hits]
-    log_run({
-        "kind": "run", "run_id": new_id("r"), "ts": _now(), "build_id": build_id,
-        "config": {"chunking": "section", "embed_model": MODEL_NAME,
-                   "retrieval": "vector", "topk": 5},
-        "question_id": "smoke_fuel", "stage": "retrieval",
-        "retrieval": {"topk_sections": top_sections},
-        "status": "ok", "error": None,
-    })
-    print(f"  smoke: top sections {top_sections}")
+    hits = search(question, records, k=CHAMPION_K, model_name=CHAMPION_EMBED)
+    print(f"  smoke: top sections {[h.get('section') for h in hits]}")
 
 
 if __name__ == "__main__":
