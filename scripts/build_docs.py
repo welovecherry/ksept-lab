@@ -1284,6 +1284,30 @@ flowchart LR
       <h3>🥇 챔피언(hybrid / K8)은 언제?</h3>
       <p>정확도(coverage)를 최우선하고 토큰을 감수할 수 있을 때. 앙상블(의미+키워드)이라 가장 튼튼하지만 토큰이 더 든다. → <a href="rag-ensemble.html">06 앙상블</a> 참고.</p>
 
+      <h3>📋 전체 리더보드 (자동 생성)</h3>
+      <p>하네스(<code>leaderboard.py</code>)가 495줄을 순위표로 뽑고 <b>스스로 추천까지</b> 내놨다:</p>
+      <div class="ok"><i>"Recommend section/bge/vector/K5 (cov 0.818, mrr 0.718): 최고 커버리지보다 0.045 뒤지지만 <b>~38% 저렴</b>하고 정답을 더 앞에 놓는다."</i> — 자동 생성된 추천문</div>
+      <table class="cmp">
+        <tr><th>#</th><th>설정 (청킹·임베딩·검색·K)</th><th>cov</th><th>mrr</th><th>비용*</th></tr>
+        <tr><td>1 🥇</td><td>section · bge · hybrid · K8</td><td><b>0.864</b></td><td>0.636</td><td>17,284</td></tr>
+        <tr><td>2</td><td>section · gte · hybrid · K8</td><td>0.864</td><td>0.602</td><td>17,284</td></tr>
+        <tr><td>3</td><td>section · minilm · hybrid · K8</td><td>0.864</td><td>0.530</td><td>17,284</td></tr>
+        <tr><td>4 ⭐</td><td>section · bge · <b>vector · K5</b></td><td>0.818</td><td><b>0.718</b></td><td><b>10,802</b></td></tr>
+        <tr><td>5</td><td>section · bge · vector · K8</td><td>0.818</td><td>0.718</td><td>17,284</td></tr>
+        <tr><td>6~36</td><td><i>전부 section 설정</i> (0.5~0.77대)</td><td>…</td><td>…</td><td>…</td></tr>
+        <tr><td>37</td><td><b>char</b> · minilm · bm25 · K8</td><td>0.409 ↓</td><td>0.331</td><td>—</td></tr>
+      </table>
+      <p class="note">*비용 = 프록시(K × 평균 청크길이). K3=6,481 · K5=10,802 · K8=17,284 → <b>K5가 K8보다 ~38% 저렴.</b></p>
+
+      <h3>이 표가 말해주는 패턴</h3>
+      <ul>
+        <li><b>§경계가 압도</b> — 1~36등이 <b>전부 section</b>. char는 37등부터(0.409로 급락). 항공법이 조항 단위라 §경계가 답 경계와 맞음.</li>
+        <li><b>K8 3종 동점(0.864)</b> — bge·gte·minilm hybrid K8. 승부는 <b>MRR</b>에서(bge 0.636 최고).</li>
+        <li><b>bm25 단독이 최약</b> — 0.5~0.636 구간에 몰림(키워드만으론 부족).</li>
+        <li><b>e5는 중위권</b>(0.727~0.773) — 여전히 프리픽스 의심.</li>
+      </ul>
+      <div class="warn"><b>🔒 정직성 — "미측정"을 숨기지 않음:</b> char × (bge·e5·gte)는 밤샘 메모리 폭증으로 중단돼 <b>점수를 안 매겼고, 지어내지도 않았다</b>("never faked"). 리더보드에 *측정 안 함*으로 명시. → 견고성·신뢰성(대회 10점)의 태도.</div>
+
       <h3>➡️ 다음 단계</h3>
       <p>이 finalist 2개를 <b>단계 2(챗봇에 적용)</b>로 넘긴다: 챔피언/추천 중 하나(또는 둘 다 눈검증)를 실제 <code>app.py</code>에 심고 → 연습 5문제 + holdout으로 확인 → 출전.</p>
       <p class="note">근거: <a href="rag-log.html">08 작업일지</a>(실험 요약·K 결정·결정 일지) · 실험 방법 <a href="rag-experiments.html">05</a> · 앙상블 실측 <a href="rag-ensemble.html">06</a>.</p>
