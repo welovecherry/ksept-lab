@@ -109,25 +109,57 @@ def pick_chunker(text: str) -> list[dict]:
     return [{"text": chunk} for chunk in chunk_text(text)]
 
 
+def _chunk(text: str, chunker: str) -> list[dict]:
+    """Chunking axis for the grid: force section/char, or content-route (default)."""
+    if chunker == "section":
+        return chunk_by_section(text)
+    if chunker == "char":
+        return [{"text": chunk} for chunk in chunk_text(text)]
+    if chunker == "route":
+        return pick_chunker(text)
+    raise ValueError(f"unknown chunker: {chunker!r}")
+
+
 # ════════════════════════════════════════════════════════════════
 # Provided: embedding (sentence-transformers, no API key required)
 # ════════════════════════════════════════════════════════════════
 
-_model: SentenceTransformer | None = None
+# Candidate embedding models for the grid (실험2) + their retrieval prefixes.
+# Each value: (hf_id, query_prefix, doc_prefix). bge instructs the query only;
+# e5 prefixes BOTH sides ("query:"/"passage:"); minilm/gte need no prefix.
+# Prefixes must be applied at index time (doc side) AND query time (query side).
+EMBED_MODELS = {
+    "minilm": (MODEL_NAME, "", ""),
+    "bge": ("BAAI/bge-large-en-v1.5",
+            "Represent this sentence for searching relevant passages: ", ""),
+    "e5": ("intfloat/e5-large-v2", "query: ", "passage: "),
+    "gte": ("thenlper/gte-large", "", ""),
+}
+DEFAULT_MODEL = "minilm"
+
+_models: dict[str, SentenceTransformer] = {}
 
 
-def get_model() -> SentenceTransformer:
-    global _model
-    if _model is None:
-        print(f"Loading embedding model ({MODEL_NAME})... (one-time download ~470MB)")
-        _model = SentenceTransformer(MODEL_NAME)
-    return _model
+def get_model(name: str = DEFAULT_MODEL) -> SentenceTransformer:
+    if name not in _models:
+        model_id = EMBED_MODELS[name][0]
+        print(f"Loading embedding model '{name}' ({model_id})...")
+        _models[name] = SentenceTransformer(model_id)
+    return _models[name]
 
 
-def embed(texts: list[str]) -> list[list[float]]:
-    """Embed a list of strings. Returns unit-normalized 384-dim vectors."""
-    model = get_model()
-    vectors = model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
+def _apply_prefix(texts: list[str], model_name: str, is_query: bool) -> list[str]:
+    _, query_prefix, doc_prefix = EMBED_MODELS[model_name]
+    prefix = query_prefix if is_query else doc_prefix
+    return [prefix + t for t in texts] if prefix else list(texts)
+
+
+def embed(texts: list[str], model_name: str = DEFAULT_MODEL,
+          is_query: bool = False) -> list[list[float]]:
+    """Embed strings with the named model, applying its query/doc prefix."""
+    payload = _apply_prefix(texts, model_name, is_query)
+    vectors = get_model(model_name).encode(
+        payload, normalize_embeddings=True, show_progress_bar=False)
     return vectors.tolist()
 
 
@@ -135,21 +167,22 @@ def embed(texts: list[str]) -> list[list[float]]:
 # Provided: build / save / load / search
 # ════════════════════════════════════════════════════════════════
 
-def build_index() -> list[dict]:
+def build_index(chunker: str = "route", embed_model: str = DEFAULT_MODEL) -> list[dict]:
     """Walk DOCS_DIR, chunk each file, embed, return list of records.
 
-    Subdirectories (e.g. _apollo_backup/) are skipped, so moving the starter's
-    apollo docs there drops them from the index without touching this code.
+    `chunker`/`embed_model` are the grid axes (실험1·2): default "route"+minilm
+    reproduces the app's index. Subdirectories (e.g. _apollo_backup/) are skipped,
+    so moving the starter's apollo docs there drops them without touching this code.
     """
     records: list[dict] = []
     chunk_id = 0
     for path in sorted(DOCS_DIR.glob("*")):
         if path.is_dir() or path.suffix.lower() not in (".md", ".txt"):
             continue
-        pieces = pick_chunker(path.read_text())
+        pieces = _chunk(path.read_text(), chunker)
         if not pieces:
             continue
-        vectors = embed([p["text"] for p in pieces])
+        vectors = embed([p["text"] for p in pieces], embed_model, is_query=False)
         for i, (piece, vec) in enumerate(zip(pieces, vectors)):
             records.append({
                 "chunk_id": chunk_id,
@@ -184,9 +217,10 @@ def cosine_distance(a: list[float], b: list[float]) -> float:
     return 1.0 - sum(x * y for x, y in zip(a, b))
 
 
-def search(query: str, records: list[dict], k: int = 5) -> list[dict]:
-    """Embed the query, return top-k records by cosine distance."""
-    [query_vec] = embed([query])
+def search(query: str, records: list[dict], k: int = 5,
+           model_name: str = DEFAULT_MODEL) -> list[dict]:
+    """Embed the query (with the model's query prefix), return top-k by cosine."""
+    [query_vec] = embed([query], model_name, is_query=True)
     scored = [(cosine_distance(r["embedding"], query_vec), r) for r in records]
     scored.sort(key=lambda x: x[0])
     return [r for _, r in scored[:k]]

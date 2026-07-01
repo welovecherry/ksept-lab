@@ -220,7 +220,8 @@
 
 (작업 중 아래에 누적 — 정답 § 검증 근거, 예상과 다른 결과, 결정 변경 등)
 
-- **H2 (미커밋):** `score.py` `score_retrieval(hits,expected,k)→{recall,coverage,mrr}`. [R1] 판정 통일(section 메타 or char청킹은 텍스트 §번호, `§\s*num(?!\d)`로 더긴번호 오탐 차단), [R5] set 디둡·None폴백·§정규화·expected빈집합 None가드. 테스트 10건 통과(단일·교차0.5·무매치·MRR순위·char폴백·오탐방지·빈집합·디둡·정규화·k제한). H03 실측: top §91.151 → recall/coverage/mrr 모두 1.0.
+- **H3a (미커밋):** indexer 매개변수화 — `EMBED_MODELS`(minilm/bge/e5/gte + 프리픽스), `embed(texts,model,is_query)`·`_apply_prefix`(문서/질문 양측), `_chunk(text,chunker)`(section/char/route), `build_index(chunker,embed_model)`·`search(...,model_name)`. 신규 `retrieval.py`: vector/bm25(rank_bm25)/hybrid(min-max후 α혼합), 정렬은 인덱스기반(동점 dict비교 회피). 테스트 10건. 실측: 청커축 section 2184 vs char 5495, 3방식 모두 §91.151 1등, app.py search(minilm) 호환. minilm 프리픽스="" 라 기존 index.pkl 유효(재인덱싱 불필요). BM25 호출당 재빌드는 H3b에서 캐시 최적화 예정.
+- **H2 (7201435):** `score.py` `score_retrieval(hits,expected,k)→{recall,coverage,mrr}`. [R1] 판정 통일(section 메타 or char청킹은 텍스트 §번호, `§\s*num(?!\d)`로 더긴번호 오탐 차단), [R5] set 디둡·None폴백·§정규화·expected빈집합 None가드. 테스트 10건 통과(단일·교차0.5·무매치·MRR순위·char폴백·오탐방지·빈집합·디둡·정규화·k제한). H03 실측: top §91.151 → recall/coverage/mrr 모두 1.0.
 - **H1 (93ca724):** `verify_holdout.py`(읽기전용 증거수집)로 14문항 대조. **[R6] 결과: "정답 §가 인덱스에 없음" 0건** → 추출 누락 없음(파이프라인 건강).
   - 추정 7개 확정: H03 §91.151("day…30 minutes / night…45 minutes" 실재), H04 §61.109, H05 §61.103("Be at least 17 years"), H07 §61.23, H08 §73.13("advance permission"), H09 §61.57(7/7 키워드), H10 §61.57+§61.23, H11 §91.131.
   - 빈칸 3개 채움(정의형은 벡터검색이 약해 §직접 확인): H01 → **§1.2**("VFR means visual flight rules")+**§91.155**(Basic VFR minimums), H02 → **§1.1**("Category:" 정의 실재), H06 → **§91.131+§91.130**(Class B vs C operating rules).
