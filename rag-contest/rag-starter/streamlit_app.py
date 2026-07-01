@@ -47,7 +47,7 @@ PRICES = {"claude-sonnet-4-6": (3.0, 15.0)}
 # Empty-state example questions (from CONTEST.md practice set) — one click to ask.
 EXAMPLES = [
     "What are the fuel-reserve requirements for VFR flight, day versus night?",
-    "What aeronautical experience is required for a private pilot certificate (airplane single-engine)?",
+    "What aeronautical experience is required for a private pilot certificate with an airplane single-engine rating?",
     "How do operating requirements differ between Class B and Class C airspace?",
 ]
 
@@ -302,15 +302,42 @@ def _pipeline_dot(found: list[str], n_passages: int, tokens: int) -> str:
     )
 
 
+def _source_card(c: dict, query: str | None) -> None:
+    """One collapsed source card: our highlighted passage + the authoritative link."""
+    with st.expander(f"[{c['n']}] {c['label']}"):
+        # Our retrieved passage, with the question's content words highlighted so you
+        # see why it matched, plus a separate authoritative link for verification.
+        st.markdown(_highlight(c["text"], query))
+        url = _cornell_url(c.get("section"))
+        if url:
+            st.markdown(f"↗ [Verify on Cornell LII — full official text of {c['label']}]({url})")
+
+
+def render_answer(text: str, citations: list[dict], query: str | None) -> None:
+    """Render the answer with each source card collapsed right under the paragraph that
+    first cites it — evidence sits next to the claim, not grouped at the bottom. Splits
+    on blank lines (markdown-safe) and shows each source once (on first citation)."""
+    by_n = {c["n"]: c for c in citations}
+    shown: set[int] = set()
+    for para in _format_answer(text, citations).split("\n\n"):
+        if not para.strip():
+            continue
+        st.markdown(para)
+        for n in dict.fromkeys(int(x) for x in re.findall(r"\[(\d+)\]", para)):
+            if n in by_n and n not in shown:
+                shown.add(n)
+                _source_card(by_n[n], query)
+    for c in citations:  # safety: any cited source not tied to a paragraph
+        if c["n"] not in shown:
+            _source_card(c, query)
+
+
 def render_footer(meta: dict | None, citations: list[dict], text: str,
                   process: list[str] | None = None, graph: str | None = None,
                   query: str | None = None) -> None:
-    """Draw the quiet cost/model/retrieval chips + source cards under an answer.
-
-    Shared by the live turn and the replay loop so history renders identically.
-    No grounding badge (E2). § references become verifiable links via _link_sections.
-    `process`/`graph` (if given) are the retrieval trace + pipeline diagram, kept in an
-    expanded panel so the "how did it find this" story persists under every answer.
+    """Draw the retrieval process/graph panel, the cost chips, and (only on a refusal)
+    the out-of-scope card. Source cards now render INLINE via render_answer, under the
+    claim they support, so they are not grouped here anymore.
     """
     if process or graph:
         with st.expander("🔍 How this answer was retrieved", expanded=True):
@@ -331,20 +358,9 @@ def render_footer(meta: dict | None, citations: list[dict], text: str,
             f'<span class="chip">{meta["model"]}</span>'
         )
         st.markdown(f'<div class="meta-row">{chips}</div>', unsafe_allow_html=True)
-    if citations:
-        for c in citations:
-            with st.expander(f"[{c['n']}] {c['label']}"):
-                # Our own retrieved passage (the part we used), with the question's
-                # content words highlighted so you see why this passage matched.
-                st.markdown(_highlight(c["text"], query))
-                # Separate, authoritative full text for verification.
-                url = _cornell_url(c.get("section"))
-                if url:
-                    st.markdown(f"↗ [Verify on Cornell LII — full official text of "
-                                f"{c['label']}]({url})")
-    elif _looks_like_refusal(text):
-        # D3: calm out-of-scope card — shown only on a real refusal, not on every
-        # uncited answer, and never the loud yellow st.warning.
+    if not citations and _looks_like_refusal(text):
+        # D3: calm out-of-scope card — only on a real refusal, never the loud yellow
+        # st.warning. (Source cards render inline under each claim via render_answer.)
         with st.container(border=True):
             st.markdown("⚠︎ Out of scope — I answer only from the indexed 14 CFR material.")
 
@@ -378,11 +394,12 @@ if "messages" not in st.session_state:
 # Replay the conversation so it survives Streamlit's rerun-on-every-interaction.
 for m in st.session_state.messages:
     with st.chat_message(m["role"], avatar=AVATARS[m["role"]]):
-        st.markdown(_format_answer(m["text"], m.get("citations", []))
-                    if m["role"] == "assistant" else m["text"])
         if m["role"] == "assistant":
+            render_answer(m["text"], m.get("citations", []), m.get("query"))
             render_footer(m.get("meta"), m.get("citations", []), m["text"],
                           m.get("process"), graph=m.get("graph"), query=m.get("query"))
+        else:
+            st.markdown(m["text"])
 
 prompt = st.chat_input("Ask a question about 14 CFR…")
 
@@ -403,11 +420,13 @@ if prompt:
 if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
     q = st.session_state.messages[-1]["text"]
     with st.chat_message("assistant", avatar=AVATARS["assistant"]):
-        # 4c query contextualization: prepend the previous question so a bare
-        # follow-up ("what about at night?") inherits the topic for retrieval.
-        # Generation still gets q (the model already has the conversation as history).
+        # 4c query contextualization: prepend the previous question ONLY when this turn
+        # is a bare follow-up ("what about at night?"), so it inherits the topic. A full
+        # standalone question searches on its own — prepending an unrelated prior
+        # question pollutes the embedding (a Class B/C prefix once buried a fuel-reserve
+        # question → false "out of scope"). Generation still gets q (model has history).
         prev_q = [m["text"] for m in st.session_state.messages[:-1] if m["role"] == "user"]
-        search_query = f"{prev_q[-1]} {q}" if prev_q else q
+        search_query = f"{prev_q[-1]} {q}" if prev_q and _is_followup(q) else q
 
         # Live process panel — the REAL single-RAG pipeline with real numbers (not a
         # fake "thinking" animation). Each step's text is also saved to `steps` so the
@@ -453,10 +472,10 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
         placeholder = st.empty()
         reply, meta = stream_answer(q, hits, placeholder, history)
         citations = _cited(reply, hits)
-        placeholder.markdown(_format_answer(reply, citations))
-        # Live turn shows the process in the st.status box above; don't also render the
-        # persistent expander here (avoids a double copy). It's stored on the message
-        # and shown by the replay loop on every later run.
+        # Swap the raw stream for the segmented answer: each source card renders inline
+        # right under the paragraph that cites it (render_answer).
+        with placeholder.container():
+            render_answer(reply, citations, search_query)
         render_footer(meta, citations, reply, graph=graph, query=search_query)
         log_attempt(q, meta, found)
 
