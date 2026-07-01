@@ -807,6 +807,15 @@ export TRANSFORMERS_OFFLINE=1</code></pre>
         <li><b>관찰:</b> 인용이 "파일명+청크번호"로 떨어짐 → §조항 번호로 고도화할 빈틈 확인(25점 레버).</li>
       </ul>
 
+      <h3>2026-06-30 — 결정: 실험 모니터링은 "20줄 CLI 리더보드"</h3>
+      <ul>
+        <li><b>문제:</b> 실험마다 <code>runs.jsonl</code> 원본을 눈으로 보는 게 힘듦 → 진행 확인용 뷰가 필요.</li>
+        <li><b>결정:</b> Streamlit 대시보드 대신 <b>작은 CLI 리더보드</b> 채택. 이유 — ① 오늘 병목은 시각화가 아니라 라벨 정확성, ② CLI 표는 <code>tail -f</code>로 야간 무인 실행과 궁합, ③ 대회 전날 새 의존성은 리스크.</li>
+        <li><b>스펙:</b> <code>runs.jsonl</code> → 점수순 표(콘솔 + <code>leaderboard.md</code>). 정렬 = coverage↓ → mrr↓ → cost↑(동점이면 <b>싼 설정</b>이 위). <code>status:failed</code>도 숨기지 않고 표시.</li>
+        <li><b>실시간:</b> 야간엔 <code>tail -f runs.jsonl</code>, 리더보드는 아무 때나 재실행해 스냅샷.</li>
+        <li><b>보류:</b> Streamlit UI는 대회 후 여유 있으면.</li>
+      </ul>
+
       <div class="ph"><b>다음 칸 — 날짜별로 계속 기록:</b> 오늘 한 일 / 막힌 점 / 해결.</div>
     </section>
 
