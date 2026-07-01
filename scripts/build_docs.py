@@ -41,7 +41,8 @@ RAG_PAGES = [
     ("rag-cache.html", "03", "캐시 원리", ["embed-tutorial"]),
     ("rag-setup.html", "04", "모델 세팅", ["embed-setup"]),
     ("rag-experiments.html", "05", "실험 계획", ["experiments"]),
-    ("rag-log.html", "06", "작업 일지", ["log", "ideas", "questions"]),
+    ("rag-progress.html", "06", "진행 단계", ["progress"]),
+    ("rag-log.html", "07", "작업 일지", ["log", "ideas", "questions"]),
 ]
 RAG_TITLES = {  # 각 페이지 h1 (사이드바 짧은 제목과 별개)
     "rag-project.html": "🛩️ RAG 콘테스트 프로젝트",
@@ -50,6 +51,7 @@ RAG_TITLES = {  # 각 페이지 h1 (사이드바 짧은 제목과 별개)
     "rag-cache.html": "🎓 캐시 원리 튜토리얼",
     "rag-setup.html": "⚙️ 임베딩 모델 세팅",
     "rag-experiments.html": "🧪 실험 계획",
+    "rag-progress.html": "🛠️ 진행 단계 (Phase 0~1)",
     "rag-log.html": "📝 작업 일지 · 메모 · 질문",
 }
 
@@ -471,6 +473,19 @@ def project_body():
       .ph { background:#161b22; border:1px dashed #30363d; border-radius:8px;
         padding:.9rem 1.1rem; margin:.8rem 0; color:#8b949e; }
       .ph b { color:#c9d1d9; }
+      .step { border:1px solid #30363d; border-radius:10px; padding:.9rem 1.1rem;
+        margin:1rem 0; background:#0d1117; }
+      .step h4 { margin:0 0 .55rem; font-size:1rem; display:flex; align-items:center;
+        justify-content:space-between; gap:.6rem; }
+      .step .st { font-size:.76rem; font-weight:700; border-radius:999px;
+        padding:.12rem .62rem; white-space:nowrap; }
+      .step .st.done { background:#11271a; color:#3fb950; border:1px solid #238636; }
+      .step .st.now  { background:#2a1d11; color:#e3b341; border:1px solid #9e6a03; }
+      .step .st.todo { background:#161b22; color:#8b949e; border:1px solid #30363d; }
+      .step dl { margin:.3rem 0 0; display:grid; grid-template-columns:auto 1fr;
+        gap:.28rem .8rem; font-size:.9rem; }
+      .step dt { color:#8b949e; white-space:nowrap; }
+      .step dd { margin:0; }
     </style>
 
     <h1>🛩️ RAG 콘테스트 프로젝트 <span class="badge">FAA 항공법 챗봇</span></h1>
@@ -783,16 +798,71 @@ export TRANSFORMERS_OFFLINE=1</code></pre>
       </ul>
 
       <h3>⑥ 진행 단계 (Phase 0~1)</h3>
-      <table class="cmp">
-        <tr><th>단계</th><th>내용</th><th>상태</th></tr>
-        <tr><td>1 스모크</td><td>스타터를 아폴로 예제로 돌려 "RAG가 돈다" 확인</td><td>✅ 완료</td></tr>
-        <tr><td>2 기록 스키마</td><td><code>runs.jsonl</code> 한 줄 형식 + 로거(성공·실패 모두 append)</td><td>⏳</td></tr>
-        <tr><td>3 PDF추출 + §태깅</td><td>FAA 6 PDF → 평문 md → "이건 §91.151 (part91)" 꼬리표</td><td>⏳</td></tr>
-        <tr><td>4 FAA 인덱싱</td><td>아폴로 빼고 FAA만 §메타 품은 <code>index.pkl</code></td><td>⏳</td></tr>
-        <tr><td>5 § 인용 표시</td><td>Sources가 <code>part91.md</code> → <b><code>§91.151 (Part 91)</code></b>로</td><td>⏳</td></tr>
-      </table>
+      <p>단계 1~5의 <b>상태·결과·막힌 점</b>은 단계 카드로 분리했다 →
+        <a href="rag-progress.html"><b>06 진행 단계</b></a>.</p>
 
       <p class="note">원본 상세: <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/STRATEGY.md">STRATEGY.md</a>(전략·3막) · <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/EXPERIMENTS.md">EXPERIMENTS.md</a>(채점·체크리스트) · <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/todo/06_30_phase0_1.md">todo/06_30_phase0_1.md</a>(Phase 0~1 실행계획)</p>
+    </section>
+
+    <section class="sec" id="progress">
+      <h2>🛠️ 진행 단계 (Phase 0~1)</h2>
+      <p>스타터(아폴로 예제)를 <b>FAA 항공법 챗봇</b>으로 갈아끼우는 5단계. 각 카드 =
+        <b>목적 · 결과 · 막힌 점</b>. 통과기준·커밋 같은 실행 디테일은
+        <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/todo/06_30_phase0_1.md">todo/06_30_phase0_1.md</a>에.</p>
+      <div class="ok"><b>지금 여기:</b> 단계 3-1(PDF 추출) 진행 중 — 1·2 완료, 3-2·4·5 예정.</div>
+
+      <div class="step">
+        <h4>단계 1 — 스모크 테스트 <span class="st done">✅ 완료 · 4761d04</span></h4>
+        <dl>
+          <dt>목적</dt><dd>스타터를 아폴로 예제 그대로 켜서 "RAG가 돈다"를 눈으로 확인.</dd>
+          <dt>결과</dt><dd>아폴로 <b>1,133청크</b> 인덱싱 → 질문에 답 + 출처 2개 정상 반환.</dd>
+          <dt>막힌 점</dt><dd>venv가 Python 3.9라 <code>SentenceTransformer | None</code>(PEP 604, 3.10+)가 import에서 <code>TypeError</code>. → <code>from __future__ import annotations</code> 한 줄로 해결(주석 lazy 평가, venv 교체보다 영향 범위 최소).</dd>
+        </dl>
+      </div>
+
+      <div class="step">
+        <h4>단계 2 — 기록 스키마 + 로거 <span class="st done">✅ 완료 · a158bc5</span></h4>
+        <dl>
+          <dt>목적</dt><dd>모든 실험을 성공·실패 가리지 않고 한 줄씩 쌓는 <code>runs.jsonl</code>·<code>index_manifest.jsonl</code> 형식과 로거 확정.</dd>
+          <dt>결과</dt><dd><code>harness/</code> 패키지화 + <code>recorder.py</code>(append-only, 한 줄 원자적 write &lt;4096B) + <b>pytest 8건</b> 통과(왕복·failed 보존·malformed·오버사이즈 거부·유니코드).</dd>
+          <dt>원칙</dt><dd>한 줄=한 실행(크래시 내성) · 성공도 실패도 기록 · config를 줄 안에 인라인(자기완결) · 원천(jsonl)과 파생(leaderboard) 분리.</dd>
+        </dl>
+      </div>
+
+      <div class="step">
+        <h4>단계 3-1 — PDF → 깨끗한 평문 추출 <span class="st now">🔄 진행중 · 미커밋</span></h4>
+        <dl>
+          <dt>목적</dt><dd>FAA 6 PDF를 머리말·쪽번호·러닝헤더를 걷어낸 평문 마크다운으로(§태깅은 3-2).</dd>
+          <dt>결과</dt><dd>PyMuPDF로 <b>~480만 자</b> 추출. part91 연료조항(§91.151·§91.167) 온전, 리딩 블록만 제거해 boilerplate 0건 잔존 확인.</dd>
+          <dt>막힌 점</dt><dd>part67 청력 <b>audiometric 표</b>가 셀당 한 줄로 세로 선형화됨. 값은 검색 가능해 pdfplumber 보정 <b>생략</b>(방어코드 최소화) — 표 정확도 질문 나오면 재검토.</dd>
+        </dl>
+      </div>
+
+      <div class="step">
+        <h4>단계 3-2 — §·part 태깅 + 파서 테스트 <span class="st todo">⏳ 예정</span></h4>
+        <dl>
+          <dt>목적</dt><dd>평문에 <code>&lt;!-- §91.151 | part91 --&gt;</code> 꼬리표를 삽입하고 <code>parse_sections()</code>를 테스트로 검증.</dd>
+          <dt>핵심</dt><dd>§ 글리프 하나에 의존 금지 → <code>§|Sec.|Section</code> 다중 패턴. part는 파일명이 아니라 <b>§번호 앞자리에서 유도</b>(vol1은 여러 part가 한 파일). § 블록 <b>&gt;50 하드게이트</b>로 조용한 0건 차단.</dd>
+        </dl>
+      </div>
+
+      <div class="step">
+        <h4>단계 4 — FAA 인덱싱 + §·part 메타 <span class="st todo">⏳ 예정</span></h4>
+        <dl>
+          <dt>목적</dt><dd>아폴로를 빼고 FAA만 §경계로 청킹, 각 레코드에 <code>section</code>·<code>part</code> 저장.</dd>
+          <dt>증명</dt><dd>빌드 후 FAA 질문 1개를 <code>search()</code> → <code>runs.jsonl</code>에 진짜 한 줄 적재(스키마를 선언이 아니라 <b>실행으로</b> 증명).</dd>
+          <dt>UI</dt><dd>화면 변화 없음(<code>index.pkl</code>이 FAA로 교체).</dd>
+        </dl>
+      </div>
+
+      <div class="step">
+        <h4>단계 5 — 답변 Sources에 § 인용 노출 <span class="st todo">⏳ 예정</span></h4>
+        <dl>
+          <dt>목적</dt><dd><code>citations</code>에 <code>section</code>·<code>part</code>를 실어 Sources 라벨을 조항 번호로.</dd>
+          <dt>UI</dt><dd>Sources가 <code>part91.md</code> → <b><code>§91.151 (Part 91)</code></b>로 바뀜 ← <b>시나리오 결과 장면</b>.</dd>
+          <dt>검증</dt><dd>범위밖 질문("공항 근처 맛집")은 "출처에 없음"으로 거부 — 환각 없음 확인.</dd>
+        </dl>
+      </div>
     </section>
 
     <section class="sec" id="log">
