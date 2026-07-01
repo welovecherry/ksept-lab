@@ -384,6 +384,8 @@ st.markdown(
     .meta-row .chip{background:#e4efe9;color:#3f4a45;padding:3px 11px;border-radius:13px}
     /* § citation links → terracotta (verifiable source links inside answers). */
     [data-testid="stChatMessage"] a{color:#b5651d;text-decoration:underline}
+    /* Sidebar-jump anchors: offset so the question isn't hidden under the top. */
+    .qanchor{position:relative;top:-70px;visibility:hidden}
     </style>""",
     unsafe_allow_html=True,
 )
@@ -396,8 +398,23 @@ index, embed_model, bm25 = get_index()
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# Sidebar: a table of contents of the questions asked; click one to jump to it.
+with st.sidebar:
+    st.markdown("### 💬 Questions")
+    _qs = [mm["text"] for mm in st.session_state.messages if mm["role"] == "user"]
+    if not _qs:
+        st.caption("Your questions will appear here.")
+    for _n, _qt in enumerate(_qs, 1):
+        _short = _qt if len(_qt) <= 45 else _qt[:44] + "…"
+        st.markdown(f"[**Q{_n}.** {_short}](#q{_n})")
+
 # Replay the conversation so it survives Streamlit's rerun-on-every-interaction.
+qnum = 0
 for m in st.session_state.messages:
+    if m["role"] == "user":
+        qnum += 1
+        # Anchor the sidebar links scroll to.
+        st.markdown(f"<div id='q{qnum}' class='qanchor'></div>", unsafe_allow_html=True)
     with st.chat_message(m["role"], avatar=AVATARS[m["role"]]):
         if m["role"] == "assistant":
             render_answer(m["text"], m.get("citations", []), m.get("query"))
