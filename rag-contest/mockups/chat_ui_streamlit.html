@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG Chat — Streamlit D (balanced)</title>
+<style>
+  :root{
+    --cream:#ece5d6; --paper:#fbf8f1; --ink:#2b2b28;
+    --teal:#2e7d6b; --teal-soft:#e4efe9; --terra:#b5651d;
+    --muted:#8a857a; --line:#ded4c1;
+    --serif:Georgia,"Times New Roman",serif;
+    --mono:ui-monospace,Menlo,"SF Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--cream);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    line-height:1.62;font-size:15px}
+  .stage{max-width:700px;margin:0 auto;padding:38px 20px 140px}
+
+  .brand{display:flex;align-items:center;gap:9px}
+  .brand .glyph{font-size:21px}
+  h1{font-family:var(--serif);font-weight:600;font-size:23px;margin:0}
+  .tagline{color:var(--muted);font-size:13px;margin:3px 0 28px}
+
+  .row{display:flex;gap:12px;margin:18px 0}
+  .avatar{flex:0 0 34px;height:34px;width:34px;border-radius:9px;display:grid;place-items:center;
+    font-size:17px;background:var(--teal-soft)}
+  .avatar.user{background:#efe7d6}
+  .bubble{flex:1;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:15px 18px}
+  .row.user .bubble{background:transparent;border-style:dashed}
+  .bubble p{margin:0 0 10px} .bubble p:last-child{margin:0}
+  .sec{font-family:var(--mono);color:var(--terra);font-weight:600;white-space:nowrap}
+  .cite{font-family:var(--mono);color:var(--terra);font-size:12.5px;vertical-align:.5px}
+  ul{margin:2px 0 10px;padding-left:20px} li{margin:3px 0}
+
+  /* 검색먼저 status */
+  .status{font-family:var(--mono);font-size:12px;color:var(--teal);background:var(--teal-soft);
+    border-radius:8px;padding:6px 11px;display:inline-flex;gap:8px;align-items:center;margin-bottom:13px}
+  .status .dot{width:6px;height:6px;border-radius:50%;background:var(--teal)}
+
+  /* footer 메타 — 라벨은 있되 조연(작게·저채도), 이모지 나열 없음 */
+  .meta{font-family:var(--mono);font-size:11.5px;color:var(--muted);
+    display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;padding-top:11px;border-top:1px solid var(--line)}
+  .meta b{color:var(--ink);font-weight:600}
+  .meta .cost{color:var(--teal);font-weight:600}
+
+  /* Sources expander */
+  .exp{margin-top:12px}
+  details{border:1px solid var(--line);border-radius:9px;background:#fefcf7;margin:6px 0}
+  summary{cursor:pointer;padding:9px 13px;font-family:var(--mono);font-size:12.5px;color:var(--terra);
+    list-style:none;display:flex;align-items:center;gap:8px}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▸";color:var(--muted)}
+  details[open] summary::before{content:"▾"}
+  .snip{padding:0 14px 13px 32px;font-size:13.5px;color:#4a463d}
+
+  /* 후속질문 칩 */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 0 46px}
+  .chip{font-size:12.5px;border:1px solid var(--teal);color:var(--teal);background:transparent;
+    border-radius:16px;padding:5px 13px;cursor:pointer;font-family:var(--mono)}
+
+  .composer{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(transparent,var(--cream) 24%);
+    padding:24px 20px 22px}
+  .composer .inner{max-width:700px;margin:0 auto;display:flex;gap:9px}
+  .composer input{flex:1;border:1px solid var(--line);border-radius:10px;background:var(--paper);
+    padding:12px 15px;font-size:14px;color:var(--ink)}
+  .composer button{border:none;background:var(--teal);color:#fff;border-radius:10px;
+    padding:0 22px;font-weight:600;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="brand"><span class="glyph">🛩️</span><h1>FAA RAG Chat</h1></div>
+  <div class="tagline">Answers grounded in cited 14 CFR sources.</div>
+
+  <div class="row user">
+    <div class="avatar user">🧑</div>
+    <div class="bubble"><p>What are the day VFR fuel requirements?</p></div>
+  </div>
+
+  <div class="row assistant">
+    <div class="avatar">🛩️</div>
+    <div class="bubble">
+      <div class="status"><span class="dot"></span>Found <span class="sec">§91.151</span> · <span class="sec">§91.167</span> · hybrid · 0.1s</div>
+
+      <p>Under <span class="sec">§ 91.151(a)(1)</span>, no person may begin a flight under VFR (Visual Flight
+      Rules) unless there is enough fuel to reach the first point of intended landing and then fly for at least
+      <strong>30 minutes</strong> at normal cruising speed. <span class="cite">[1]</span></p>
+      <ul>
+        <li><strong>Day:</strong> destination + 30 min reserve. <span class="cite">[1]</span></li>
+        <li><strong>Night:</strong> destination + 45 min reserve. <span class="cite">[1]</span></li>
+      </ul>
+      <p>These are regulatory minimums; plan larger reserves for weather or traffic. <span class="cite">[1]</span></p>
+
+      <div class="meta">
+        <span><b>model</b> sonnet-4-6</span>
+        <span><b>tokens</b> 1,240→180</span>
+        <span class="cost">~$0.0064</span>
+        <span><b>search</b> hybrid · K5</span>
+      </div>
+
+      <div class="exp">
+        <details>
+          <summary>§91.151 (Part 91)</summary>
+          <div class="snip">"(a) No person may begin a flight in an airplane under VFR conditions unless … there
+          is enough fuel to fly to the first point of intended landing and, assuming normal cruising speed —
+          (1) During the day, to fly after that for at least 30 minutes; or (2) At night, 45 minutes."</div>
+        </details>
+        <details>
+          <summary>§91.167 (Part 91)</summary>
+          <div class="snip">Fuel requirements for flight in IFR conditions …</div>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <div class="chips">
+    <button class="chip">↳ What about night VFR?</button>
+    <button class="chip">↳ IFR fuel reserves?</button>
+    <button class="chip">↳ Does wind change this?</button>
+  </div>
+
+</div>
+
+<div class="composer"><div class="inner">
+  <input placeholder="Ask a question about 14 CFR…" disabled>
+  <button>Send</button>
+</div></div>
+
+</body>
+</html>

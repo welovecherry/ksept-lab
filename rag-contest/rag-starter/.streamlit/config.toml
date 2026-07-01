@@ -1,0 +1,19 @@
+# D 섹셔널 테마 (DESIGN.md) — 누가 보든 크림+teal로 고정(시스템 다크모드 무시).
+# 색·크롬 숨김은 여기서, terracotta 인용·폰트 등 세부 CSS는 단계 3에서 주입.
+[theme]
+base = "light"
+primaryColor = "#2e7d6b"            # teal 액센트(버튼·포커스)
+backgroundColor = "#ece5d6"         # 크림 배경
+secondaryBackgroundColor = "#fbf8f1" # paper(입력창·카드)
+textColor = "#2b2b28"
+
+[client]
+toolbarMode = "minimal"             # D1: Deploy/햄버거 등 크롬 숨김
+
+[browser]
+gatherUsageStats = false
+
+[server]
+# 파일 감시기 OFF: transformers 서브모듈을 훑다 torchvision 없어 뜨는 무해한
+# 트레이스백 수천 줄을 제거(자동 리로드만 비활성 — 재시작으로 반영하면 됨).
+fileWatcherType = "none"
