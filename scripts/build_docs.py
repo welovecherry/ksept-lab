@@ -53,7 +53,7 @@ RAG_TITLES = {  # 각 페이지 h1 (사이드바 짧은 제목과 별개)
     "rag-setup.html": "⚙️ 임베딩 모델 세팅",
     "rag-experiments.html": "🧪 실험 계획",
     "rag-ensemble.html": "🧩 앙상블 — 모델 합치기",
-    "rag-progress.html": "🛠️ 진행 단계 (Phase 0~1)",
+    "rag-progress.html": "🛠️ 진행 단계 (파이프라인 + 하네스)",
     "rag-log.html": "📝 작업 일지 · 메모 · 질문",
 }
 
@@ -947,11 +947,9 @@ flowchart LR
     </section>
 
     <section class="sec" id="progress">
-      <h2>🛠️ 진행 단계 (Phase 0~1)</h2>
-      <p>스타터(아폴로 예제)를 <b>FAA 항공법 챗봇</b>으로 갈아끼우는 5단계. 각 카드 =
-        <b>목적 · 결과 · 막힌 점</b>. 통과기준·커밋 같은 실행 디테일은
-        <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/todo/06_30_act1_pipeline.md">todo/06_30_act1_pipeline.md</a>에.</p>
-      <div class="ok"><b>🎉 Phase 0~1(1막 파이프라인) 전 단계 완료</b> — 단계 1~5 ✅ + 임베딩 프리페치 ✅. Sources에 <code>§91.151 (Part 91)</code> 실현. <b>다음은 2막(하네스·자동 실험)</b> → <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/todo/06_30_act1_harness.md">act1_harness</a>.</div>
+      <h2>🛠️ 진행 단계</h2>
+      <p>스타터(아폴로 예제)를 <b>FAA 항공법 챗봇</b>으로 바꾸고(<b>A. 파이프라인</b>), 그 위에 <b>실험 하네스</b>를 얹는(<b>B. 하네스</b>) 전체 여정. 통과기준·커밋 같은 실행 디테일은 todo(<a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/todo/06_30_act1_pipeline.md">pipeline</a> · <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/todo/06_30_act1_harness.md">harness</a>)에.</p>
+      <div class="ok"><b>🎉 A. 파이프라인(단계 1~5) 완료</b> — Sources에 <code>§91.151 (Part 91)</code> 실현 + 임베딩 프리페치 ✅. 지금은 <b>B. 실험 하네스</b> 진행 중(H1·H2 ✅, H3~H5 예정).</div>
 
       <div class="step">
         <h4>준비 — 임베딩 후보 프리페치 <span class="st done">✅ 완료 (실험 2 선행)</span></h4>
@@ -1017,6 +1015,19 @@ flowchart LR
           <dt>UI</dt><dd>Sources가 <code>part91.md</code> → <b><code>§91.151 (Part 91)</code></b>로 바뀜 ← <b>시나리오 결과 장면 실현</b> 🎉</dd>
         </dl>
       </div>
+
+      <h3 style="border-top:1px solid #30363d;padding-top:1.2rem;margin-top:2rem">B. 실험 하네스 (H1~H5) — 2막 준비</h3>
+      <p>파이프라인 위에 <b>자동 실험 장치</b>를 얹는다. 대부분 진행 중이라 압축 표로(완료되면 카드로 승격). 실행 상세 → <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/todo/06_30_act1_harness.md">act1_harness</a>.</p>
+      <table class="cmp">
+        <tr><th>단계</th><th>목적</th><th>상태</th></tr>
+        <tr><td><b>H1</b> holdout 검증</td><td>정답 § 라벨을 FAA 인덱스에 대조해 확정(채점 신뢰의 전제)</td><td>✅ 93ca724</td></tr>
+        <tr><td><b>H2</b> 검색 채점기</td><td>Recall·coverage·MRR 산출(무료·코드)</td><td>✅ 7201435</td></tr>
+        <tr><td><b>H3a</b> 검색엔진 매개변수화</td><td>인덱서(청킹·임베딩) + BM25·하이브리드 검색을 인자로</td><td>⏳ 예정</td></tr>
+        <tr><td><b>H3b</b> 오케스트레이터 루프</td><td>설정 그리드 순회 → runs.jsonl 적재(무료 검색 0~4)</td><td>⏳ 예정</td></tr>
+        <tr><td><b>H4</b> 인용 검증기</td><td>답변의 인용 §이 근거에 실제 있나 대조(가짜 인용 색출)</td><td>⏳ 예정</td></tr>
+        <tr><td><b>H5</b> 생성 단계(유료)</td><td>실험 5~6 답 생성·캐싱·Batches — <b>메인 세션</b>, 요구사항 <a href="rag-experiments.html">§5.1</a></td><td>⏳ 예정</td></tr>
+      </table>
+      <p class="note">H1~H4는 <b>무료 검색 축</b>(로컬), H5만 <b>유료 생성</b>. 이게 끝나면 밤샘 자동 실험(2막)을 돌린다.</p>
     </section>
 
     <section class="sec" id="log">
