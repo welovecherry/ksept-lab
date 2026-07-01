@@ -217,13 +217,19 @@ _STOP = {
 }
 
 
+def _bold_numbers(text: str) -> str:
+    """Bold standalone numeric values (30 minutes, 40 hours, 150 NM) so the key figures
+    pop, while leaving § section refs like 91.151 alone (skip digits touching a dot)."""
+    return re.sub(r"(?<![\d.§])\b\d+\b(?!\.\d)", lambda m: f"**{m.group(0)}**", text)
+
+
 def _highlight(text: str, query: str) -> str:
-    """Highlight the ONE passage sentence most relevant to the question (the sentence
-    sharing the most distinct query keywords), not every keyword occurrence. Scattering
-    the highlight over common words ("pilot", "certificate") hides the point; marking the
-    single best-matching sentence shows where the answer actually lives. Streamlit-safe
+    """Bold the passage's numeric values, then highlight the ONE sentence most relevant
+    to the question (most distinct query keywords) — not every keyword occurrence, which
+    scatters the highlight over common words ("pilot") and hides the point. Streamlit-safe
     :orange-background; skipped if the sentence contains ']' (would break the directive).
     """
+    text = _bold_numbers(text)
     words = {w for w in re.findall(r"[A-Za-z]{3,}", (query or "").lower()) if w not in _STOP}
     if not words:
         return text
