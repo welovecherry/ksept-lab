@@ -239,12 +239,20 @@ def stream_answer(question, hits, placeholder, history):
     return full, meta
 
 
-def render_footer(meta: dict | None, citations: list[dict], text: str) -> None:
+def render_footer(meta: dict | None, citations: list[dict], text: str,
+                  process: list[str] | None = None) -> None:
     """Draw the quiet cost/model/retrieval chips + source cards under an answer.
 
     Shared by the live turn and the replay loop so history renders identically.
     No grounding badge (E2). § references are tinted by _colorize at render time.
+    `process` (if given) is the retrieval trace kept in a collapsed expander, so the
+    "how did it find this" story persists under every answer — not just while it
+    streams (the professor asked to see the retrieval process, re-viewable anytime).
     """
+    if process:
+        with st.expander("🔍 How this answer was retrieved", expanded=True):
+            for s in process:
+                st.markdown(s)
     if meta:
         # Uniform teal-soft pills. Headline = total tokens + cost; the in/out split
         # is on hover (title tooltip). Values are our own numbers (no user input),
@@ -299,7 +307,7 @@ for m in st.session_state.messages:
         st.markdown(_format_answer(m["text"], m.get("citations", []))
                     if m["role"] == "assistant" else m["text"])
         if m["role"] == "assistant":
-            render_footer(m.get("meta"), m.get("citations", []), m["text"])
+            render_footer(m.get("meta"), m.get("citations", []), m["text"], m.get("process"))
 
 prompt = st.chat_input("Ask a question about 14 CFR…")
 
@@ -326,22 +334,37 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
         prev_q = [m["text"] for m in st.session_state.messages[:-1] if m["role"] == "user"]
         search_query = f"{prev_q[-1]} {q}" if prev_q else q
 
-        # Live process panel — the REAL pipeline (search → select → write), not a fake
-        # "thinking" animation. Steps appear as each runs, then it auto-collapses. This
-        # doubles as transparency (judges see grounding + the token trim we're proud of).
-        with st.status("Working on it…", expanded=True) as status:
-            st.write("🔎 Searching the 14 CFR corpus…")
+        # Live process panel — the REAL single-RAG pipeline with real numbers (not a
+        # fake "thinking" animation). Each step's text is also saved to `steps` so the
+        # same trace persists in a collapsed expander under the answer: shown live AND
+        # re-viewable later (the professor asked to see HOW it retrieves).
+        steps = []
+
+        def step(msg):
+            steps.append(msg)
+            st.write(msg)
+
+        with st.status("Retrieving…", expanded=True) as status:
+            if prev_q:
+                step(f"💬 Read in the conversation's context → searching for: *{search_query}*")
+            else:
+                step(f"💬 Question: *{q}*")
+            step(f"🔎 Embedding with **{embed_model}** ({len(index[0]['embedding'])}-dim) and "
+                 f"comparing against **{len(index):,}** indexed 14 CFR chunks by similarity…")
             hits = retrieve(search_query, index, method=CHAMPION_METHOD, k=CHAMPION_K,
                             embed_model=embed_model, bm25=bm25)
-            found = list(dict.fromkeys(h.get("section") or h.get("source") for h in hits))[:3]
-            st.write(f"📑 Found {' · '.join(found)}")
-            st.write("✂️ Selecting the passages most relevant to your question…")
-            # Cap context tokens: keep only query-relevant windows (huge § like 61.109
-            # → ~1.6k tokens, not ~15k). Windows inherit the parent § meta for citations.
+            raw_chars = sum(len(h.get("text", "")) for h in hits)
+            found = list(dict.fromkeys(h.get("section") or h.get("source") for h in hits))
+            step(f"📑 Top {len(hits)} matching sections: {' · '.join(found)}")
+            step("✂️ Splitting the long sections into passages and keeping only the ones "
+                 "relevant to your question (this is what caps the tokens)…")
             hits = select_context(search_query, hits, embed_model)
-            st.write(f"📉 Narrowed to {len(hits)} passages · {CHAMPION_METHOD}·K{CHAMPION_K}")
-            st.write("✍️ Writing a grounded, cited answer…")
-            status.update(label="Done", state="complete", expanded=False)
+            sel_chars = sum(len(h.get("text", "")) for h in hits)
+            trim = 100 * (1 - sel_chars / raw_chars) if raw_chars else 0
+            step(f"📉 Context trimmed **{raw_chars:,} → {sel_chars:,} chars** "
+                 f"(~{trim:.0f}% smaller, ≈{sel_chars // 4:,} tokens) across **{len(hits)}** passages")
+            step("✍️ Writing an answer grounded **only** in these passages, with citations…")
+            status.update(label="Retrieval process", state="complete", expanded=True)
 
         # 4c multi-turn: prior turns as plain Q/A (no old CONTEXT blocks — E2).
         history = [{"role": m["role"], "content": m["text"]}
@@ -353,8 +376,12 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
         reply, meta = stream_answer(q, hits, placeholder, history)
         citations = _cited(reply, hits)
         placeholder.markdown(_format_answer(reply, citations))
+        # Live turn shows the process in the st.status box above; don't also render the
+        # persistent expander here (avoids a double copy). It's stored on the message
+        # and shown by the replay loop on every later run.
         render_footer(meta, citations, reply)
         log_attempt(q, meta, found)
 
     st.session_state.messages.append(
-        {"role": "assistant", "text": reply, "meta": meta, "citations": citations})
+        {"role": "assistant", "text": reply, "meta": meta,
+         "citations": citations, "process": steps})
