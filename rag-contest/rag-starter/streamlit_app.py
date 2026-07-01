@@ -218,16 +218,21 @@ _STOP = {
 
 
 def _highlight(text: str, query: str) -> str:
-    """Highlight the question's content words where they appear in a retrieved passage
-    (Streamlit-safe :orange-background), so the reader sees WHY the passage matched.
-    Stopwords are skipped so only meaningful terms light up.
+    """Highlight the ONE passage sentence most relevant to the question (the sentence
+    sharing the most distinct query keywords), not every keyword occurrence. Scattering
+    the highlight over common words ("pilot", "certificate") hides the point; marking the
+    single best-matching sentence shows where the answer actually lives. Streamlit-safe
+    :orange-background; skipped if the sentence contains ']' (would break the directive).
     """
     words = {w for w in re.findall(r"[A-Za-z]{3,}", (query or "").lower()) if w not in _STOP}
     if not words:
         return text
-    pat = re.compile(r"\b(" + "|".join(sorted(map(re.escape, words), key=len, reverse=True)) + r")\b",
-                     re.IGNORECASE)
-    return pat.sub(lambda m: f":orange-background[{m.group(0)}]", text)
+    sentences = re.split(r"(?<=[.;])\s+", text)
+    best_score, best = max(((sum(w in s.lower() for w in words), s) for s in sentences),
+                           key=lambda x: x[0], default=(0, ""))
+    if best_score == 0 or not best.strip() or "]" in best:
+        return text
+    return text.replace(best, f":orange-background[{best.strip()}]", 1)
 
 
 def _format_answer(text: str, citations: list[dict]) -> str:
