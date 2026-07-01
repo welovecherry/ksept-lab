@@ -7,12 +7,16 @@
 
 > 어젯밤 그리드가 `experiments/runs.jsonl`에 검색 실험 결과(최대 792줄)를 채워둠. **내일은 실험을 다시 돌릴 일 없음** — 그 데이터를 *보는* 일만.
 
-- [ ] **0. 밤샘 결과 확인** — `wc -l experiments/runs.jsonl` (792에 가까우면 완료, 적으면 char 미완 → `python harness/orchestrate.py` 다시 켜 이어하기).
-- [ ] **1. UI 대시보드 (오늘의 핵심, ~2h)** — `runs.jsonl`을 읽어 *설정별 평균 coverage·recall·MRR* 을 순위표/그래프로. 이게 곧 리더보드(별도 `leaderboard.py` 불필요, 대시보드에 흡수). "어느 청킹·모델·방식·K가 최강?"이 한눈에.
-- [ ] **2. 최적 검색설정 확정** — 대시보드 1등(동률이면 더 싸고 단순한 쪽, [수정4]③). finalist **2개**를 생성 단계로([수정3]).
-- [ ] **아직 남은 것(오늘 밖)**: H4 인용검증기 · **2·3막 생성단계(H5, 유료·메인세션)** = 실제 답변 생성+LLM 심판. ← 검색이 아니라 *답변/인용(25점)* 은 여기서.
+> 어젯밤 그리드가 `runs.jsonl`을 채워둠. 내일은 *실험을 다시 돌리는 게 아니라* 그 결과로 **최적 검색설정을 골라 챗봇에 적용**한다.
 
-> ⚠️ 오늘 밤+내일 대시보드로 끝나는 건 **"검색 최적화"** 까지. 대회 출전본(생성)은 그 다음.
+- [ ] **0. 밤샘 결과 확인** — `wc -l experiments/runs.jsonl` (792 근접=완료, 적으면 char 미완 → `python harness/orchestrate.py`로 이어하기).
+- [ ] **1. CLI 리더보드 (~20줄, web 대시보드 ❌)** — `runs.jsonl` → 설정별 평균 coverage·recall·MRR 순위표. "어느 청킹·모델·방식·K가 최강?" 한눈에. (web 대시보드는 대회 0점 — 만들지 말 것)
+- [ ] **2. 🥇 app.py를 최적설정으로 — 답변품질 30점의 핵심** — 지금 `search()`(vector 전용)를 `retrieve(method=..)`로 교체. **[실측 발견] vector는 종합질문(H10 등)에서 정답 조항을 놓치고 bm25/hybrid는 잡음** → 검색설정이 곧 답변품질. 그리드 1등 설정으로 재색인+적용. (동률이면 더 싸고 단순한 쪽 [수정4]③, finalist 2개 [수정3])
+- [ ] **3. 연습문제 5개를 채팅 UI로 테스트** — `localhost:5173`에서 답+§인용 확인. (대회가 채점하는 바로 그 화면)
+- [ ] **채팅 UI 개선** → [`06_30_chat_ui.md`](06_30_chat_ui.md) (D 섹셔널·이중언어·UX). 답변 완전성/종합은 **생성 프롬프트**(H5) 몫.
+- [ ] **아직 남음(오늘 밖)**: H4 인용검증기 · **생성단계(H5, 유료·메인세션)** = 답변 생성+LLM 심판.
+
+> 💡 **오늘 밤의 큰 발견**: 검색 방식(hybrid)이 *답변 품질(30점)의 병목*임을 실측 증명. vector→hybrid 하나로 종합질문이 답변 가능해진다.
 
 ## 사용자 시나리오 (가장 먼저 읽힌다)
 
@@ -252,6 +256,7 @@
 
 (작업 중 아래에 누적 — 정답 § 검증 근거, 예상과 다른 결과, 결정 변경 등)
 
+- **🔑 검색→답변품질 실측 (2026-07-01):** app.py로 종합질문 H10("야간 승객 의료+최근경험") 돌림. **vector(minilm)는 정답 §61.57·§61.23을 top-6에 하나도 못 올림** → 모델이 (환각 없이 정직하게) "출처에 없음" 답. 같은 질문 `retrieve`로 비교: **bm25·hybrid는 §61.57·§61.23 둘 다 잡음.** 결론: *답변 품질(30점)의 병목은 프롬프트가 아니라 검색설정.* vector는 정확 전문용어("recent experience"·"medical")를 놓치고 단어매칭(bm25)이 잡음 → 내일 app.py를 hybrid로. 프롬프트 완전성+종합 규칙은 출처 있을 때 보조(day/night 질문서 구조 개선 확인). 환각 방지는 이미 작동.
 - **H3b (미커밋, 밤샘 실행 중):** `orchestrate.py` 중첩 for(청킹·임베딩 바깥→인덱스빌드, 검색·K 안쪽) → `runs.jsonl`. [R4] 설정내용 이어하기, 인덱스당 BM25 1회 재사용(`build_bm25`+retrieve 옵션), [R8] 미니코퍼스 스모크. 작은 그리드 실측: section×minilm×[vector,bm25]×[3,5]=44줄, 재실행 0줄(이어하기✓), 24초. 미니 리더보드: K5>K3, vector MRR↑. 밤샘 그리드=section+char×4모델×3방식×3K=792줄(section 먼저). route는 전부 §태그라 section과 동일해 제외.
 - **H3a (957d514):** indexer 매개변수화 — `EMBED_MODELS`(minilm/bge/e5/gte + 프리픽스), `embed(texts,model,is_query)`·`_apply_prefix`(문서/질문 양측), `_chunk(text,chunker)`(section/char/route), `build_index(chunker,embed_model)`·`search(...,model_name)`. 신규 `retrieval.py`: vector/bm25(rank_bm25)/hybrid(min-max후 α혼합), 정렬은 인덱스기반(동점 dict비교 회피). 테스트 10건. 실측: 청커축 section 2184 vs char 5495, 3방식 모두 §91.151 1등, app.py search(minilm) 호환. minilm 프리픽스="" 라 기존 index.pkl 유효(재인덱싱 불필요). BM25 호출당 재빌드는 H3b에서 캐시 최적화 예정.
 - **H2 (7201435):** `score.py` `score_retrieval(hits,expected,k)→{recall,coverage,mrr}`. [R1] 판정 통일(section 메타 or char청킹은 텍스트 §번호, `§\s*num(?!\d)`로 더긴번호 오탐 차단), [R5] set 디둡·None폴백·§정규화·expected빈집합 None가드. 테스트 10건 통과(단일·교차0.5·무매치·MRR순위·char폴백·오탐방지·빈집합·디둡·정규화·k제한). H03 실측: top §91.151 → recall/coverage/mrr 모두 1.0.
