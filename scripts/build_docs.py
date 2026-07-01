@@ -812,7 +812,24 @@ export TRANSFORMERS_OFFLINE=1</code></pre>
       </table>
       <div class="ok"><b>요점:</b> for문은 대부분 <b>공짜 검색 채점을 수천 번</b> 돌고, Claude API는 <b>마지막 생성에서만 수십 번</b> 부른다. 순진하게 전체 그리드(생성 포함)를 다 돌리면 <b>5,000번 넘는 API 호출</b>로 폭발 — 그걸 피하려 검색(무료)과 생성(유료)을 갈라놓은 것. <span class="note">(숫자는 예시 — 홀드아웃·finalist 수에 따라 변함)</span></div>
 
-      <h3>⑤ 채점 3종 + 기록 원칙</h3>
+      <h3>⑤ 홀드아웃 — 비밀 시험지(+정답지) <code>holdout.jsonl</code></h3>
+      <p class="analogy">📄 <b>비유:</b> <b>"시험지 + 정답지가 한 장에 붙은 문제집"</b>. 14문제(H01~H14), 각 줄이 질문 + <b>정답 §조항</b> + "거부가 정답인지"까지 담는다. 튜닝에 안 쓰고 <b>검증에만</b> 쓰는 비밀 세트.</p>
+      <p>한 줄(문제)은 이렇게 생겼다 (H03 예):</p>
+      <pre><code>{"id":"H03","type":"numeric","part":["91"],
+ "question":"day VFR fuel-reserve 요건?",
+ "expected_sections":["§91.151"],   ← 정답 §조항 (채점 열쇠)
+ "expect_refusal":false,            ← 답해야 함(true면 '거부가 정답')
+ "note":"day=30min 추정 — 확인"}</code></pre>
+      <p><b>정답이 두 종류다:</b></p>
+      <table class="cmp">
+        <tr><th>종류</th><th>정답</th><th>예</th><th>재는 점수</th></tr>
+        <tr><td>조항 맞히기 (<code>expect_refusal:false</code>)</td><td>정답 §이 검색 top-K에 들면 O</td><td>H04→§61.109, H10(교차)→§61.57+§61.23</td><td>답변·인용 55점</td></tr>
+        <tr><td>거부하기 (<code>expect_refusal:true</code>)</td><td><b>답 안 하는 게 정답</b></td><td>H12 맛집·H13 월드컵(범위밖), <b>H14 인젝션</b></td><td>견고성·안전 10점</td></tr>
+      </table>
+      <p>문제 유형(<code>type</code>)을 <b>골고루</b> 섞었다: definition·numeric·comparison·procedure·cross(여러 편 교차)·out_of_scope·adversarial. → 루브릭 항목을 미리 다 연습하는 축소판.</p>
+      <div class="warn"><b>⚠️ 지금 상태 — 정답 라벨이 아직 "추정":</b> 여러 문제의 <code>expected_sections</code>가 <code>null</code>/"추정"(H01·H02·H06 등). <b>정답 라벨이 틀리면 Recall@K가 거짓 점수</b>를 내 밤샘 실험이 틀린 방향으로 달린다(차단 작업). → Phase 1 인덱싱이 끝났으니 <code>grep</code>으로 <i>정답 § 청크에 질문 키워드가 실제 있는지</i> 대조해 확정 (예: H03 → §91.151 청크에 "30 minutes"·"fuel").</div>
+
+      <h3>⑥ 채점 3종 + 기록 원칙</h3>
       <div class="term"><b>Recall@K</b> = 정답 §이 상위 K에 든 비율(무료). 정답이 여러 개면 <b>커버리지</b>(몇 개 맞췄나), 순위는 <b>MRR</b>로 보강.</div>
       <div class="ok"><b>왜 공짜인가 — "판단"이 아니라 "정답지 대조"라서.</b><br>
         holdout에 정답 §을 미리 라벨(H03 → §91.151) → 검색이 가져온 top-K 문단의 §태그와 <b>대조만</b> 한다:
@@ -828,7 +845,7 @@ export TRANSFORMERS_OFFLINE=1</code></pre>
  "status":"ok"}</code></pre>
       <div class="warn"><b>차단 작업(blocker):</b> 무료 채점은 전부 <b>정답 § 라벨의 정확성</b>에 의존한다. 라벨이 틀리면 Recall이 거짓말을 한다 → Phase 1 직후 <code>grep</code>으로 전수 검증하기 전엔 점수를 신뢰하지 않는다.</div>
 
-      <h3>⑥ 비용 — 두 지갑 분리</h3>
+      <h3>⑦ 비용 — 두 지갑 분리</h3>
       <ul>
         <li><b>검색 실험(1~4):</b> 로컬 임베딩 → <b>$0</b>.</li>
         <li><b>생성 실험(5~6):</b> 공유 키 사용 → <b>Batches API 50%↓</b> + 누적 상한 가드(초과 시 자동 중단). 추산 ~$9~12.</li>
@@ -848,7 +865,7 @@ export TRANSFORMERS_OFFLINE=1</code></pre>
       <div class="warn"><b>핵심:</b> 임베딩을 4→1로 줄여도 <b>API 비용은 그대로</b>다 — 검색이 끝나면 어차피 <b>top-2 finalist만</b> 생성으로 올리기 때문(finalist 수는 임베딩 개수와 무관). 임베딩 줄이기는 <b>밤샘 시간</b>만 단축한다. <b>API를 아끼려면 반드시 생성 쪽</b>(finalist·모델·프롬프트·질문)을 건드려야 한다.</div>
       <p class="note">비용만 문제라면 횟수는 그대로 두고 <b>Batches(50%↓) + 프롬프트 캐싱(토큰↓)</b>이 가장 손해 없는 절약 — 이미 ~$10라 무리해 표본을 줄이면 <b>답변 품질 55점</b>을 잃어 <b>비용 15점</b>을 벌려다 손해.</p>
 
-      <h3>⑦ 진행 단계 (Phase 0~1)</h3>
+      <h3>⑧ 진행 단계 (Phase 0~1)</h3>
       <p>단계 1~5의 <b>상태·결과·막힌 점</b>은 단계 카드로 분리했다 →
         <a href="rag-progress.html"><b>06 진행 단계</b></a>.</p>
 
