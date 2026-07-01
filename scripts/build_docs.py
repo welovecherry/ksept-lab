@@ -685,6 +685,16 @@ export HF_HUB_OFFLINE=1         # 당일: 캐시만 사용(네트워크 차단)<
       <p class="analogy">📦 <b>비유:</b> 모델 세팅 = <b>장 미리 봐두기</b>. 요리(검색) 당일에 재료(모델)를 그때 사러 가면 늦으니, <b>전날 사다 냉장고(로컬 캐시)에 넣어둔다.</b></p>
       <p>sentence-transformers는 모델을 처음 부를 때 가중치(0.5~1.3GB)를 인터넷에서 받아 <code>~/.cache</code>에 저장한다. 한 번 받으면 그다음은 오프라인. <b>대회 전날 4개를 미리 받아 캐시</b>해 두면 당일 인터넷 사고·지연을 피한다. (총 약 4~5GB.)</p>
 
+      <div class="ok"><b>✅ 실측 상태 (2026-06-30 완료):</b> 후보 4종 <b>모두 로컬 캐시 + 스모크 통과</b>. 세 후보 다 차원 1024d, "연료 조항 문장 &gt; 아폴로 문장" 유사도 순서 정상. 당일 다운로드 리스크 제거됨.</div>
+      <table class="cmp">
+        <tr><th>모델</th><th>차원</th><th>연료 vs 아폴로 (코사인)</th><th>용량</th><th>상태</th></tr>
+        <tr><td>MiniLM (기준)</td><td>384</td><td>Phase 0 아폴로 스모크로 확인</td><td>458MB</td><td>✅</td></tr>
+        <tr><td>bge-large-en-v1.5</td><td>1024</td><td><b>0.711</b> &gt; 0.311 <span class="note">(간격 0.40 — 분별력 큼)</span></td><td>1.2GB</td><td>✅</td></tr>
+        <tr><td>e5-large-v2</td><td>1024</td><td><b>0.850</b> &gt; 0.708</td><td>1.2GB</td><td>✅</td></tr>
+        <tr><td>gte-large</td><td>1024</td><td><b>0.897</b> &gt; 0.705</td><td>640MB</td><td>✅</td></tr>
+      </table>
+      <p class="note">주의: 이 스모크는 <b>문장 1쌍</b>으로 "작동 확인"만 한 것 — 모델 우열은 홀드아웃 전체 <b>Recall@K(실험 2)</b>에서 갈린다. 코사인 절댓값보다 <b>관련/무관 간격</b>이 검색 순위에 중요.</p>
+
       <h3>1) 준비 — venv + 패키지</h3>
       <p>프로젝트 전용 가상환경에 <code>sentence-transformers</code>가 있으면 끝(스타터 설치에 포함). 없으면:</p>
       <pre><code>pip install sentence-transformers</code></pre>
@@ -809,7 +819,16 @@ export TRANSFORMERS_OFFLINE=1</code></pre>
       <p>스타터(아폴로 예제)를 <b>FAA 항공법 챗봇</b>으로 갈아끼우는 5단계. 각 카드 =
         <b>목적 · 결과 · 막힌 점</b>. 통과기준·커밋 같은 실행 디테일은
         <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/todo/06_30_phase0_1.md">todo/06_30_phase0_1.md</a>에.</p>
-      <div class="ok"><b>지금 여기:</b> 단계 3-1(PDF 추출) 진행 중 — 1·2 완료, 3-2·4·5 예정.</div>
+      <div class="ok"><b>지금 여기:</b> 단계 3-1(PDF 추출) 진행 중 — 1·2 완료, 3-2·4·5 예정. 별도 준비(임베딩 프리페치)도 완료.</div>
+
+      <div class="step">
+        <h4>준비 — 임베딩 후보 프리페치 <span class="st done">✅ 완료 (실험 2 선행)</span></h4>
+        <dl>
+          <dt>목적</dt><dd>실험 2(임베딩 축) 전에 후보 3종을 미리 받아 캐시 + 작동 검증. 느리고 실패 가능한 다운로드를 <b>밤샘 루프 밖에서</b> 끝냄.</dd>
+          <dt>결과</dt><dd><b>bge·e5·gte 모두 로컬 캐시</b>(1.2G·1.2G·640M) + 스모크 통과. 전부 1024d, "연료 &gt; 아폴로" 유사도 순서 정상. 프리픽스 규칙(e5·bge)도 로딩과 안 엉킴. → <a href="rag-setup.html">04 모델 세팅</a>에 실측표.</dd>
+          <dt>의미</dt><dd>당일 다운로드 리스크 제거. 임베딩 교체가 "이름만 바꾸면" 되는 상태.</dd>
+        </dl>
+      </div>
 
       <div class="step">
         <h4>단계 1 — 스모크 테스트 <span class="st done">✅ 완료 · 4761d04</span></h4>
