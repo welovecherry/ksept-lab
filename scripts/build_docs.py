@@ -1037,7 +1037,7 @@ flowchart LR
       </div>
 
       <div class="step">
-        <h4>H3a — 검색 엔진 매개변수화 <span class="st todo">⏳ 예정</span></h4>
+        <h4>H3a — 검색 엔진 매개변수화 <span class="st done">✅ 완료 · 957d514</span></h4>
         <dl>
           <dt>목적</dt><dd>오케스트레이터가 축을 돌리려면 <b>인덱서·검색이 설정을 인자로</b> 받아야 함(지금은 단일 목적이라 그리드를 못 돎).</dd>
           <dt>계획</dt><dd><b>[R2]</b> <code>build_index(chunker, embed_model)</code> 매개변수화(모델별 프리픽스 테이블 — bge·e5 필수, gte 불필요). <b>[R3]</b> <code>retrieval.py</code>에 BM25·하이브리드(α 병합) 추가, 인터페이스 통일.</dd>
@@ -1046,7 +1046,7 @@ flowchart LR
       </div>
 
       <div class="step">
-        <h4>H3b — 오케스트레이터 루프 (엔진) <span class="st todo">⏳ 예정</span></h4>
+        <h4>H3b — 오케스트레이터 루프 (엔진) <span class="st now">🔄 작동 확인 (미니 그리드) · 커밋 전</span></h4>
         <dl>
           <dt>목적</dt><dd>도구 위에서 설정을 순서대로 돌려 <code>runs.jsonl</code>을 쌓는 <b>for문</b>(무료 검색 축 0~4).</dd>
           <dt>계획</dt><dd>중첩 루프 — <b>바깥</b>: 청킹×임베딩 = 인덱스 빌드 12개(무거움), <b>안쪽</b>: 검색×K 스윕(같은 인덱스 재사용·즉시). <b>[R4]</b> 이어하기 키 = <b>설정 내용</b>(build_id 아님). <b>[실험4]</b> coverage 거의 안 떨어지는 <b>최소 K</b> 선택.</dd>
@@ -1115,6 +1115,14 @@ flowchart LR
         <li><b>검증:</b> 실제 검색+합성 답으로 [1]→<b>§91.151 (Part 91)</b>·[2]→§25.955 (Part 25)·범위밖 인용 필터·비FAA 폴백 확인.</li>
         <li><b>의미:</b> "챗봇이 <b>진짜 조항 번호</b>로 인용하는" 시나리오 결과 장면 실현 → <b>25점 인용 레버</b> 확보. <b>Phase 0~1(1막 파이프라인) 전 단계 완료.</b></li>
         <li><b>다음:</b> 2막(하네스·자동 실험). 단 그 전에 <b>holdout 정답 § 라벨 확정</b>(grep 대조, blocker)이 선행.</li>
+      </ul>
+
+      <h3>2026-06-30 — 🎉 실험 엔진 첫 가동 (미니 리더보드)</h3>
+      <ul>
+        <li><b>무슨 일:</b> 실험 엔진(오케스트레이터, H3b)이 <b>작은 그리드로 실제로 돌아</b> 첫 점수표가 나왔다. 며칠 만든 부품(채점기·로거·검색엔진)이 드디어 함께 작동!</li>
+        <li><b>첫 신호(경향):</b> ① <b>더 많이 가져오면(K=5) 더 잘 맞힘</b>(coverage·recall↑). ② <b>vector(의미) 검색이 정답을 더 앞순위에</b> 놓음(MRR↑) — bm25(키워드)와 담아온 양(coverage)은 비슷.</li>
+        <li><b>쉬운 뜻:</b> 정답이 앞쪽에 오면(vector) K를 적게 써도 잡혀 → <b>토큰 절약 여지</b>. "vector + 작은 K"가 가성비 후보일 수 있음.</li>
+        <li><b>주의:</b> 미니 그리드라 <b>경향일 뿐</b> — 전체(section 먼저) 밤샘 돌린 뒤 확정. 하이브리드(vector+bm25)는 다음 확인.</li>
       </ul>
 
       <div class="ph"><b>다음 칸 — 날짜별로 계속 기록:</b> 오늘 한 일 / 막힌 점 / 해결.</div>
