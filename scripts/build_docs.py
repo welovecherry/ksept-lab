@@ -1329,6 +1329,23 @@ flowchart LR
       </ul>
       <div class="warn"><b>🔒 정직성 — "미측정"을 숨기지 않음:</b> char × (bge·e5·gte)는 밤샘 메모리 폭증으로 중단돼 <b>점수를 안 매겼고, 지어내지도 않았다</b>("never faked"). 리더보드에 *측정 안 함*으로 명시. → 견고성·신뢰성(대회 10점)의 태도.</div>
 
+      <h3>🗣️ 프롬프트도 리더보드로 — "말투"까지 데이터로</h3>
+      <p>검색 설정만 고른 게 아니라, 답변 <b>말투(시스템 프롬프트)</b>도 실험으로 골랐다 (3막 풀버전: <b>생성 → 인용검증 → LLM 심판</b>). 후보 3개 × tune 5문항 = <b>15 생성</b>(sonnet). <b>심판은 opus</b>(생성과 분리 → 자기편향 방지).</p>
+      <table class="cmp">
+        <tr><th>#</th><th>프롬프트</th><th>종합</th><th>완전성</th><th>그라운딩</th><th>출력토큰</th></tr>
+        <tr><td>1 🏆</td><td><b>B_balanced</b></td><td><b>4.93</b></td><td><b>5.00</b></td><td>5.00</td><td>391</td></tr>
+        <tr><td>2</td><td>A_current(현행)</td><td>4.60</td><td>4.40</td><td>5.00</td><td>313</td></tr>
+        <tr><td>3</td><td>C_warm(친근)</td><td>4.20</td><td>3.80</td><td>5.00</td><td>577</td></tr>
+      </table>
+      <ul>
+        <li><b>그라운딩은 셋 다 만점(5.00)</b> — 전부 인용 정확 + H14 인젝션 거부. 여긴 차이 없음.</li>
+        <li><b>승부는 "완전성"에서</b> — B(5.00) &gt; A(4.40) &gt; C(3.80).</li>
+      </ul>
+      <div class="ok"><b>반전 — 길이 ≠ 완전성:</b> C_warm이 가장 <b>장황</b>했는데(출력 577토큰, 800 상한에 3번 걸려 <b>잘림</b>) 완전성은 꼴찌. 우승 B는 <b>더 짧게(391) 쓰고도 다 덮음</b>. 즉 좋은 답은 *길어서*가 아니라 *빠짐없이 덮되 안 잘려서* 완전하다.</div>
+      <p class="note">→ 최종 <code>SYSTEM_PROMPT = 그라운딩 규칙 + B_balanced 스타일</code>. 산출: <code>experiments/prompt_leaderboard.md</code>.</p>
+
+      <div class="ok"><b>✅ 그래서 최종 챗봇 =</b> 검색 <b>§경계/bge/vector/K5</b> + 말투 <b>B_balanced</b>. (검색은 이미 app.py에 반영·재색인 완료, 종합질문 H06 2/2로 개선 확인)</div>
+
       <h3>➡️ 다음 단계</h3>
       <p>이 finalist 2개를 <b>단계 2(챗봇에 적용)</b>로 넘긴다: 챔피언/추천 중 하나(또는 둘 다 눈검증)를 실제 <code>app.py</code>에 심고 → 연습 5문제 + holdout으로 확인 → 출전.</p>
       <p class="note">근거: <a href="rag-log.html">08 작업일지</a>(실험 요약·K 결정·결정 일지) · 실험 방법 <a href="rag-experiments.html">05</a> · 앙상블 실측 <a href="rag-ensemble.html">06</a>.</p>
