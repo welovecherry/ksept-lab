@@ -511,6 +511,7 @@ def project_body():
       <h2>📌 개요</h2>
       <p class="analogy">📖 <b>비유:</b> RAG = <b>오픈북 시험 보는 학생</b>. 머릿속 지식만으로 답하면 틀린 말을 지어내니(환각), <b>관련 조항을 펼쳐 읽고 그 근거로</b> 답하게 만든다.</p>
       <p>대회는 같은 FAA 코퍼스(6개 PDF, 약 1,297쪽)로 모두가 챗봇을 만들고, 당일 <b>처음 보는 질문 3개</b>로 1:1 토너먼트. <b>더 잘 근거대고 인용한</b> 쪽이 승급. 승부처는 <b>답변 품질(30) + 인용·근거(25) = 55점.</b></p>
+      <p>🧭 <b>진화:</b> 처음엔 <b>단발(single-shot) RAG</b>만 다뤘다 — 검색 1회 → 답변 1회로 싸고 예측 가능. 이후 <b>에이전트를 추가</b>해, 지금은 한 질문을 <b>🎯 단발 · 🤖 에이전틱 두 방식으로 나란히</b> 답하고 비교한다. 에이전트는 모델이 <b>스스로 여러 번 검색</b>해 여러 조항에 흩어진 근거를 모으고(자가교정), 비용을 위해 <b>검색 3회로 캡</b>. 구체 질문엔 단발이 기본값, 교차조항 질문엔 에이전트가 강하다. 자세한 비교는 <a href="rag-slides.html">발표 슬라이드</a> 및 아래 <a href="#log">작업 일지</a> 참조.</p>
       <p class="note">전략 원본: <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/STRATEGY.md">STRATEGY.md</a> · 실험 런북: <a href="https://github.com/welovecherry/ksept-lab/blob/main/rag-contest/EXPERIMENTS.md">EXPERIMENTS.md</a></p>
     </section>
 
@@ -1280,6 +1281,15 @@ flowchart LR
         <li><b>슬라이드 (50a1cfc + 후속):</b> RAG 여정을 담은 HTML 덱(<code>docs/rag-slides.html</code>, 화살표/전체화면 네비, CDN 의존 0) → Pages 자동 배포. 검색·프롬프트 <b>실험 결과 표 2장</b>(<code>leaderboard.md</code>·<code>prompt_leaderboard.md</code>)을 데이터로 추가.</li>
         <li><b>정답 검증:</b> "산소·고고도 규정 나열" 답을 코퍼스와 대조 — <b>§91.211 숫자 100% 일치</b>(12,500/14,000/15,000ft, FL250/350/410), 인용 조항 전부 실재(환각 0). 다만 §25.1449/1450 누락(K5 한계)·§25.1447 임계값 미세 오차 발견.</li>
         <li><b>검색 정합 (e90b2c4):</b> 열거형 §규칙이 흩어지지 않도록 primary-section 우선순위로 묶음.</li>
+      </ul>
+
+      <h3>2026-07-01 — 🤖 에이전트 복귀: 단발 vs 에이전틱 나란히 비교 UI</h3>
+      <ul>
+        <li><b>맥락:</b> 앞서 비용(27배) 때문에 <b>단발로 롤백</b>했지만, 에이전트의 강점(여러 조항에 흩어진 근거를 모아옴·자가교정)은 분명했다 → 버리지 않고 <b>캡 씌워 되살렸다</b>. "정적을 버린 것"이 아니라 <b>둘 다 제공</b>으로 방향 전환.</li>
+        <li><b>가져오기 (8531ff8):</b> 팀원 브랜치의 <b>컴페어뷰</b>를 <code>streamlit_app.py</code>로 이식 — 한 질문을 <b>🎯 단발 | 🤖 에이전틱</b> 두 칼럼으로 동시에 답하고, 임베딩 <b>모델 선택</b>(bge⇄minilm)까지. 함수 diff로 "내 작업의 상위집합"임을 확인 후 교체(내 로깅·follow-up 수정 손실 0).</li>
+        <li><b>버그 수정:</b> per-model 인덱스 파일 이름 어긋남(<code>index.cmp.minilm.pkl</code> → <code>cmp.minilm</code> 오인)으로 <code>KeyError</code> → <code>index.bge.pkl</code>·<code>index.minilm.pkl</code>로 정비(데이터만, 코드 무수정).</li>
+        <li><b>발표용 다듬기:</b> 에이전틱 칼럼 상단의 <b>루프 소스코드 노출 → "에이전트가 어떻게 동작하나" 5단계 과정 설명</b>으로 교체(모델이 스스로 검색 결정 → 부족하면 재검색 → 3회 캡 → 근거 답변). 죽은 상수 제거.</li>
+        <li><b>의미:</b> 최종 산출물은 <b>단발·에이전틱을 나란히 제공</b> — 대회 비용 15점을 위해 단발이 기본값이되, 교차조항 질문엔 에이전트가 한 클릭 거리에.</li>
       </ul>
 
       <div class="ph"><b>다음 칸 — 날짜별로 계속 기록:</b> 오늘 한 일 / 막힌 점 / 해결.</div>
