@@ -414,6 +414,30 @@ with st.sidebar:
         _short = _qt if len(_qt) <= 45 else _qt[:44] + "…"
         st.markdown(f"[**Q{_n}.** {_short}](#q{_n})")
 
+    st.markdown("### 🔬 Model comparison")
+    cmp_on = st.checkbox("Compare bge vs minilm retrieval")
+    cmp_q = (st.text_input(
+        "Question", value="recent flight experience day vs night to carry passengers")
+        if cmp_on else "")
+
+# Embedding-model comparison (demo): same question, different retrieval per model.
+# Shows WHY bge was chosen — minilm often misses the answer section. Retrieval only
+# (free); backend is harness/compare_models.py. Additive — independent of the chat.
+if cmp_on and cmp_q.strip():
+    from harness.compare_models import COMPARE_MODELS, compare_retrieval
+    with st.expander("🔬 Embedding model comparison — same question, different retrieval",
+                     expanded=True):
+        _res = compare_retrieval(cmp_q)
+        for _col, _model in zip(st.columns(len(COMPARE_MODELS)), COMPARE_MODELS):
+            with _col:
+                _tag = "🏆 champion" if _model == COMPARE_MODELS[0] else "baseline"
+                st.markdown(f"**{_model}** · {_tag}")
+                for _i, _h in enumerate(_res[_model], 1):
+                    st.markdown(f"{_i}. **{_h.get('section') or _h.get('source')}**")
+                    st.caption((_h.get("text", "")[:110]).strip() + "…")
+        st.caption("Same query, each model against its own index. Notice which model "
+                   "retrieves the section that actually answers the question.")
+
 # Replay the conversation so it survives Streamlit's rerun-on-every-interaction.
 qnum = 0
 for m in st.session_state.messages:
